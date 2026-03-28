@@ -1,185 +1,287 @@
+# app.py
 import streamlit as st
 import pandas as pd
+import numpy as np
+import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
-# Using menu
-# st.title("Trung Tâm Tin Học")
-st.image("banner_nhatot.png", use_column_width=True)
+# ==================== CẤU HÌNH ====================
+st.set_page_config(
+    page_title="Hệ thống Đề xuất & Phân cụm Bất động sản", 
+    layout="wide"
+)
 
-menu = ["Home", "Capstone Project", "Sử dụng các điều khiển", 
-        "Gợi ý điều khiển project 1", "Gợi ý điều khiển project 2"]
+# ==================== ĐƯỜNG DẪN FILE ====================
+PATH_BT1 = r"C:\Users\Admin\Desktop\project2\file_pkl_bt1"
+PATH_BT2 = r"C:\Users\Admin\Desktop\project2\file_pkl_bt2"
 
-choice = st.sidebar.selectbox('Menu', menu)
+# ==================== LOAD MODELS ====================
+@st.cache_resource
+def load_models():
+    """Load tất cả các model"""
+    models = {}
+    
+    # Load BT1 models
+    models['df_recommend'] = joblib.load(os.path.join(PATH_BT1, "df_recommend.pkl"))
+    models['hybrid_sim'] = joblib.load(os.path.join(PATH_BT1, "hybrid_sim.pkl"))
+    models['cosine_sim'] = joblib.load(os.path.join(PATH_BT1, "cosine_sim.pkl"))
+    
+    # Load BT2 models
+    models['scaler'] = joblib.load(os.path.join(PATH_BT2, "scaler.pkl"))
+    models['kmeans'] = joblib.load(os.path.join(PATH_BT2, "kmeans.pkl"))
+    models['gmm'] = joblib.load(os.path.join(PATH_BT2, "gmm.pkl"))
+    models['agg'] = joblib.load(os.path.join(PATH_BT2, "agg.pkl"))
+    models['pca'] = joblib.load(os.path.join(PATH_BT2, "pca.pkl"))
+    models['df_clustered'] = joblib.load(os.path.join(PATH_BT2, "df_clustered.pkl"))
+    models['cluster_info'] = joblib.load(os.path.join(PATH_BT2, "cluster_info.pkl"))
+    
+    return models
 
-if choice == 'Home':    
-    st.subheader("[Trang chủ](https://csc.edu.vn)")  
-    st.write('''
-    ### Chào mừng bạn đến với khóa học 
-    ##### Đồ án TN''')
+# Load models
+with st.spinner("Đang tải mô hình..."):
+    models = load_models()
 
-elif choice == 'Capstone Project':    
-    st.subheader("[Đồ án TN Data Science](https://csc.edu.vn/data-science-machine-learning/Do-An-Tot-Nghiep-Data-Science---Machine-Learning_229)")
-    st.write("""### Có 2 chủ đề trong khóa học:    
-    - Topic 1: Dự đoán giá nhà, phát hiện tin đăng bán nhà bất thường
-    - Topic 2: Hệ thống gợi ý nhà dựa trên nội dung, phân cụm nhà
-             """)
+st.sidebar.success("✅ Tải mô hình thành công!")
 
-elif choice == 'Sử dụng các điều khiển':
-    # Sử dụng các điều khiển nhập
-    # 1. Text
-    st.subheader("1. Text")
-    name = st.text_input("Enter your name")
-    st.write("Your name is", name)
-    # 2. Slider
-    st.subheader("2. Slider")
-    age = st.slider("How old are you?", 1, 100, 20)
-    st.write("I'm", age, "years old.")
-    # 3. Checkbox
-    st.subheader("3. Checkbox")
-    if st.checkbox("I agree"):
-        st.write("Great!")
-    # 4. Radio
-    st.subheader("4. Radio")
-    status = st.radio("What is your status?", ("Active", "Inactive", "Busy"))
-    st.write("You are", status)
-    # 5. Selectbox
-    st.subheader("5. Selectbox")
-    occupation = st.selectbox("What is your occupation?", ["Student", "Teacher", "Others"])
-    st.write("You are a", occupation)
-    # 6. Multiselect
-    st.subheader("6. Multiselect")
-    location = st.multiselect("Where do you live?", ("Hanoi", "HCM", "Danang", "Hue"))
-    st.write("You live in", location)
-    # 7. File Uploader
-    st.subheader("7. File Uploader")
-    file = st.file_uploader("Upload your file", type=["csv", "txt"])
-    if file is not None:
-        st.write(file)    
-    # 9. Date Input
-    st.subheader("9. Date Input")
-    date = st.date_input("Pick a date")
-    st.write("You picked", date)
-    # 10. Time Input
-    st.subheader("10. Time Input")
-    time = st.time_input("Pick a time")
-    st.write("You picked", time)
-    # 11. Display JSON
-    st.subheader("11. Display JSON")
-    json = st.text_input("Enter JSON", '{"name": "Alice", "age": 25}')
-    st.write("You entered", json)
-    # 12. Display Raw Code
-    st.subheader("12. Display Raw Code")
-    code = st.text_area("Enter code", "print('Hello, world!')")
-    st.write("You entered", code)
-    # Sử dụng điều khiển submit
-    st.subheader("Submit")
-    submitted = st.button("Submit")
-    if submitted:
-        st.write("You submitted the form.")
-        # In các thông tin phía trên khi người dùng nhấn nút Submit
-        st.write("Your name is", name)
-        st.write("I'm", age, "years old.")
-        st.write("You are", status)
-        st.write("You are a", occupation)
-        st.write("You live in", location)
-        st.write("You picked", date)
-        st.write("You picked", time)
-        st.write("You entered", json)
-        st.write("You entered", code)
-          
-elif choice == 'Gợi ý điều khiển project 1':
-    st.write("##### Gợi ý điều khiển project 1: Dự đoán giá nhà và phát hiện tin đăng bán nhà bất thường")
-    st.write("##### Dữ liệu mẫu")
-    # đọc dữ liệu từ file subset_100motobykes.csv
-    df = pd.read_csv("house_samples.csv")
-    st.dataframe(df.head())   
+# ==================== MENU ====================
+menu = st.sidebar.radio(
+    "MENU",
+    ["🏢 Bài toán kinh doanh", "📊 Đánh giá Mô hình", "🎯 Dự đoán phân cụm", "🔍 Đề xuất bất động sản", "👥 Info Team"]
+)
 
-    # Trường hợp 2: Đọc dữ liệu từ file csv, excel do người dùng tải lên
-    st.write("### Đọc dữ liệu từ file csv do người dùng tải lên")
-    uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])   
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        st.write("Dữ liệu đã nhập:")
-        st.dataframe(df.head())
-    st.write("### 1. Dự đoán giá nhà")
-    # Tạo điều khiển để người dùng nhập các thông tin về nhà
-    # nhạp tieu de, mo ta, dia chi, gia, dien tich, so phong ngu, so phong tam, nam xay dung
-    tieu_de = st.text_input("Nhập tiêu đề nhà")
-    mo_ta = st.text_area("Nhập mô tả nhà")
-    dia_chi = st.text_input("Nhập địa chỉ nhà")
-    gia = st.slider("Nhập giá nhà (VND)", 0, 100000000000, 500000000, step=10000000)
+# ==================== BUSINESS PROBLEM ====================
+if menu == "🏢 Bài toán kinh doanh":
+    st.title("🏢 Bài toán Kinh doanh")
+    
+    st.markdown("""
+    ### 📌 Vấn đề
+    - Khách hàng có nhu cầu mua nhà tại các quận **Bình Thạnh, Gò Vấp, Phú Nhuận**
+    - Cần hệ thống đề xuất nhà phù hợp
+    - Cần phân cụm để hiểu rõ phân khúc thị trường
+    
+    ### 🎯 Mục tiêu
+    1. Đề xuất nhà dựa trên nội dung (TF-IDF + Cosine)
+    2. Phân cụm bằng KMeans, GMM, Agglomerative
+    3. Hybrid Recommender (nội dung + giá + vị trí)
+    
+    ### 📊 Dữ liệu
+    - **7,881** bất động sản tại 3 quận
+    - Thuộc tính: giá, diện tích, số phòng, quận
+    - Mô tả chi tiết từ tin đăng
+    """)
+    
+    col1, col2, col3 = st.columns(3)
+    df = models['df_recommend']
+    with col1:
+        st.metric("Tổng số BĐS", f"{len(df):,}")
+    with col2:
+        st.metric("Giá trung bình", f"{df['gia_ban_num'].mean()/1e9:.1f} tỷ")
+    with col3:
+        st.metric("Diện tích TB", f"{df['dien_tich_num'].mean():.0f} m²")
 
-    dien_tich = st.number_input("Nhập diện tích (m2)", min_value=0, step=1)
-    so_phong_ngu = st.number_input("Nhập số phòng ngủ", min_value=0, step=1)
-    so_phong_tam = st.number_input("Nhập số phòng tắm", min_value=0, step=1)
-    so_tang = st.slider("Chọn số tầng", 0, 10, 1, step=1)
- 
-    du_doan_gia = st.button("Dự đoán giá")
-    if du_doan_gia:
-        # In ra các thông tin đã chọn
-        st.write("Tiêu đề nhà:", tieu_de)
-        st.write("Mô tả nhà:", mo_ta)
-        st.write("Địa chỉ nhà:", dia_chi)
-        st.write("Giá nhà:", gia)
-        st.write("Diện tích:", dien_tich)
-        st.write("Số phòng ngủ:", so_phong_ngu)
-        st.write("Số phòng tắm:", so_phong_tam)
-        st.write("Số tầng:", so_tang)
+# ==================== EVALUATION ====================
+elif menu == "📊 Đánh giá Mô hình":
+    st.title("📊 Đánh giá Mô hình")
+    
+    tab1, tab2 = st.tabs(["Clustering", "Recommendation"])
+    
+    with tab1:
+        st.subheader("Đánh giá phân cụm")
+        
+        info = models['cluster_info']
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("KMeans", f"{info['kmeans_score']:.4f}")
+            st.write(f"Cụm 0: {info['cluster_counts'][0]:,} BĐS")
+            st.write(f"Cụm 1: {info['cluster_counts'][1]:,} BĐS")
+        
+        with col2:
+            st.metric("GMM", f"{info['gmm_score']:.4f}")
+            st.write("Điểm thấp nhất")
+        
+        with col3:
+            st.metric("Agglomerative", f"{info['agg_score']:.4f}")
+            st.write("✅ **Tốt nhất**")
+    
+    with tab2:
+        st.subheader("Đánh giá Recommender")
+        st.write("""
+        **TF-IDF + Cosine:** Dựa trên nội dung mô tả
+        
+        **Hybrid:** Kết hợp 3 yếu tố
+        - Nội dung (50%)
+        - Giá (25%)
+        - Vị trí (25%)
+        
+        **✅ Khuyến nghị: Hybrid**
+        """)
 
-        # Giả sử giá dự đoán là 25000000 VND, thực tế cần dùng mô hình ML để dự đoán
-        gia_du_doan = 25000000
-        st.write("Giá dự đoán (giả sử), thực tế cần dùng mô hình ML để dự đoán:", gia_du_doan)
-    # Làm tiếp cho phần phát hiện nhà bất thường
-    st.write("### 2. Phát hiện nhà bất thường")    
-    gia_du_doan = st.number_input("Nhập giá dự đoán (VND) để kiểm tra bất thường", min_value=0, max_value=100000000000, value=2500000000, step=10000000)
-    kiem_tra_bat_thuong = st.button("Kiểm tra bất thường")
-    if kiem_tra_bat_thuong:
-        # In ra các thông tin đã chọn    
-        st.write("Giá dự đoán (VND):", gia_du_doan)
-        # Giả sử nếu số km đã đi > 150000 hoặc giá dự đoán < 5000000 thì là bất thường
-        if gia_du_doan < 2000000000 or gia_du_doan > 3000000000:
-            st.write("#### Nhà bất thường")
+# ==================== PREDICTION ====================
+elif menu == "🎯 Dự đoán phân cụm":
+    st.title("🎯 Dự đoán phân cụm")
+    
+    # Thêm thông tin hướng dẫn
+    with st.expander("📌 Hướng dẫn", expanded=False):
+        st.write("""
+        **Cách sử dụng:**
+        1. Nhập giá bán và diện tích
+        2. Chọn quận
+        3. Nhấn "Dự đoán" để xem kết quả phân cụm
+        
+        **Giải thích kết quả:**
+        - **Cụm 0:** Nhà phổ thông (giá ~6.5 tỷ, diện tích ~48m²)
+        - **Cụm 1:** Nhà cao cấp (giá ~20 tỷ, diện tích ~114m²)
+        """)
+    
+    # Form nhập liệu
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        gia = st.number_input("💰 Giá (tỷ)", min_value=0.5, max_value=100.0, value=5.0, step=0.5)
+        dien_tich = st.number_input("📐 Diện tích (m²)", min_value=10.0, max_value=500.0, value=50.0, step=5.0)
+    
+    with col2:
+        quan = st.selectbox("📍 Quận", ["Bình Thạnh", "Gò Vấp", "Phú Nhuận"])
+        # Thêm thông tin giá tham khảo theo quận
+        gia_tham_khao = {
+            "Bình Thạnh": "6.5 - 20 tỷ",
+            "Gò Vấp": "5.5 - 18 tỷ",
+            "Phú Nhuận": "6 - 22 tỷ"
+        }
+        st.info(f"💡 Giá tham khảo quận {quan.replace('_', ' ').title()}: {gia_tham_khao[quan]}")
+    
+    if st.button("🔮 Dự đoán", type="primary"):
+        # Tính toán
+        gia_num = gia * 1e9
+        price_per_m2 = gia_num / dien_tich
+        quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
+        quan_encoded = quan_map[quan]
+        
+        new_data = np.array([[gia_num, dien_tich, price_per_m2, quan_encoded]])
+        new_scaled = models['scaler'].transform(new_data)
+        
+        # Dự đoán
+        kmeans_pred = models['kmeans'].predict(new_scaled)[0]
+        gmm_pred = models['gmm'].predict(new_scaled)[0]
+        
+        st.divider()
+        st.subheader("📊 Kết quả dự đoán")
+        
+        # Hiển thị kết quả chi tiết
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            st.markdown("### 🎯 KMeans")
+            st.metric("Phân cụm", f"Cụm {kmeans_pred}")
+            
+            if kmeans_pred == 0:
+                st.success("🏠 **Phân khúc phổ thông**")
+                st.write("""
+                **Đặc điểm:**
+                - Giá: ~6.5 tỷ
+                - Diện tích: ~48 m²
+                - Phù hợp: Gia đình trẻ, đầu tư
+                """)
+            else:
+                st.success("🏰 **Phân khúc cao cấp**")
+                st.write("""
+                **Đặc điểm:**
+                - Giá: ~20 tỷ
+                - Diện tích: ~114 m²
+                - Phù hợp: Gia đình lớn, cao cấp
+                """)
+        
+        with col_b:
+            st.markdown("### 📊 GMM")
+            st.metric("Phân cụm", f"Cụm {gmm_pred}")
+            st.warning("⚠️ Độ tin cậy thấp hơn KMeans")
+            st.write("**Silhouette score:** 0.369")
+        
+        # Thêm thông tin so sánh
+        st.divider()
+        st.subheader("📈 Phân tích")
+        
+        # So sánh với giá trung bình
+        avg_price = models['df_recommend']['gia_ban_num'].mean() / 1e9
+        if gia > avg_price:
+            st.info(f"💰 Giá nhập ({gia} tỷ) cao hơn giá trung bình thị trường ({avg_price:.1f} tỷ)")
         else:
-            st.write("#### Nhà bình thường.")
-        # Trên thực tế cần dùng mô hình phát hiện bất thường để kiểm tra
-        # Nếu có mô hình ML, có thể gọi hàm dự đoán ở đây
-        pass
-
-elif choice=='Gợi ý điều khiển project 2':
-    st.write("##### Gợi ý điều khiển project 2: Recommender System")
-    st.write("##### Dữ liệu mẫu")
-    # Đọc dữ liệu từ file house_samples.csv, chỉ lấy 3 cột id, tieu_de, mo_ta
-    df = pd.read_csv("house_samples.csv")    
-    
-    st.dataframe(df)
-    st.write("### 1. Tìm kiếm nhà tương tự")
-    # Tạo điều khiển để người dùng chọn nhà
-    selected_house = st.selectbox("Chọn nhà", df['tieu_de'])
-    st.write("Nhà đã chọn:", selected_house) 
-    # Từ nhà đã chọn này, người dùng có thể xem thông tin chi tiết của nhà
-    # hoặc thực hiện các xử lý khác
-    # tạo điều khiển để người dùng tìm kiếm nhà dựa trên thông tin người dùng nhập
-    search = st.text_input("Nhập thông tin tìm kiếm")
-    # Tìm kiếm nhà dựa trên thông tin người dùng nhập vào search, chuyển thành chữ thường trước khi tìm kiếm
-    # Trên thực tế sử dụng content-based filtering (cosine similarity/ gensim/hydrid) để tìm kiếm nhà tương tự
-    result = df[df['tieu_de'].str.lower().str.contains(search.lower())]    
-    # tạo button submit
-    tim_kiem = st.button("Tìm kiếm")
-    if tim_kiem:
-        st.write("Danh sách nhà tìm được:")
-        st.dataframe(result)
-       
-# Done
-    
-    
-    
+            st.info(f"💰 Giá nhập ({gia} tỷ) thấp hơn giá trung bình thị trường ({avg_price:.1f} tỷ)")
         
+        # Gợi ý dựa trên kết quả
+        if kmeans_pred == 0:
+            st.success("💡 **Gợi ý:** Đây là phân khúc nhà phổ thông, phù hợp với nhu cầu ở hoặc đầu tư cho thuê.")
+        else:
+            st.success("💡 **Gợi ý:** Đây là phân khúc nhà cao cấp, phù hợp với khách hàng có tài chính mạnh, tìm kiếm không gian sống rộng rãi.")
 
-        
-        
-
+# ==================== RECOMMENDATION ====================
+elif menu == "🔍 Đề xuất bất động sản":
+    st.title("🔍 Đề xuất bất động sản")
     
+    # Chọn bất động sản
+    df = models['df_recommend']
+    df_display = df.head(100).copy()
+    df_display['display'] = df_display.apply(
+        lambda x: f"{x['tieu_de'][:45]}... - {x['gia_ban']}", axis=1
+    )
+    
+    selected_idx = st.selectbox(
+        "Chọn bất động sản:",
+        range(len(df_display)),
+        format_func=lambda x: df_display.iloc[x]['display']
+    )
+    
+    # Hiển thị chi tiết
+    with st.expander("Xem chi tiết", expanded=True):
+        prop = df_display.iloc[selected_idx]
+        st.write(f"**Tiêu đề:** {prop['tieu_de']}")
+        st.write(f"**Giá:** {prop['gia_ban']} | **Diện tích:** {prop['dien_tich']} | **Quận:** {prop['quan']}")
+    
+    n_recommend = st.slider("Số lượng đề xuất:", 3, 10, 5)
+    rec_type = st.radio("Loại đề xuất:", ["Hybrid", "Content-based"])
+    
+    if st.button("Đề xuất", type="primary"):
+        sim_matrix = models['hybrid_sim'] if rec_type == "Hybrid" else models['cosine_sim']
+        
+        sim_scores = list(enumerate(sim_matrix[selected_idx]))
+        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+        sim_scores = sim_scores[1:n_recommend+1]
+        
+        st.divider()
+        st.subheader("Kết quả đề xuất:")
+        
+        for i, (idx, score) in enumerate(sim_scores, 1):
+            prop = df.iloc[idx]
+            st.write(f"**{i}. {prop['tieu_de'][:80]}...**")
+            st.write(f"💰 {prop['gia_ban']} | 📐 {prop['dien_tich']} | 📍 {prop['quan']}")
+            st.write(f"🎯 Độ tương đồng: {score:.3f}")
+            st.divider()
 
-
-
+elif menu == "👥 Info Team":
+    st.title("👥 Thông tin nhóm")
+    
+    st.markdown("""
+    **Đề tài:** Hệ thống Đề xuất & Phân cụm Bất động sản
+    
+    **Thành viên:**
+    | STT | Họ và tên | Công việc |
+    |-----|-----------|-----------|
+    | 1 | Đặng Đức Duy | Xử lý dữ liệu  |
+    | 2 | [Huỳnh Lê Xuân Ánh ] | Xây dựng models Hệ thống đề xuất |
+    | 3 | [Nguyễn Thị Tuyết Vân] | Xây dựng models hệ thống phân cụm BĐS |
+                
+    **Công nghệ:** 
+        Scikit-learn 
+            - KMeans 
+            - Gaussian Mixture Model (GMM) 
+            - Agglomerative Clustering 
+        PySpark 
+            - KMeans 
+            - Gaussian Mixture Model (GMM)
+            - BisectingKMeans
+    
+    """)
+    
