@@ -19,11 +19,13 @@ PATH_BT2 = os.path.join(BASE_DIR, "file_pkl_bt2")
 # ==================== LOAD MODELS ====================
 @st.cache_resource
 def load_models():
+    """Load tất cả các model"""
     models = {}
     
-    # Load BT1 models - KHÔNG load cosine_sim
+    # Load BT1 models
     models['df_recommend'] = joblib.load(os.path.join(PATH_BT1, "df_recommend.pkl"))
     models['hybrid_sim'] = joblib.load(os.path.join(PATH_BT1, "hybrid_sim.pkl"))
+    models['cosine_sim'] = joblib.load(os.path.join(PATH_BT1, "cosine_sim.pkl"))
     
     # Load BT2 models
     models['scaler'] = joblib.load(os.path.join(PATH_BT2, "scaler.pkl"))
@@ -36,6 +38,7 @@ def load_models():
     
     return models
 
+# Load models
 with st.spinner("Đang tải mô hình..."):
     models = load_models()
 
@@ -44,12 +47,13 @@ st.sidebar.success("✅ Tải mô hình thành công!")
 # ==================== MENU ====================
 menu = st.sidebar.radio(
     "MENU",
-    ["Bài toán kinh doanh", "Đánh giá Mô hình", "Dự đoán phân cụm", "Đề xuất bất động sản", "Thông tin nhóm"]
+    ["🏢 Bài toán kinh doanh", "📊 Đánh giá Mô hình", "🎯 Dự đoán phân cụm", "🔍 Đề xuất bất động sản", "👥 Info Team"]
 )
 
 # ==================== BUSINESS PROBLEM ====================
-if menu == "Bài toán kinh doanh":
-    st.title("Bài toán Kinh doanh")
+if menu == "🏢 Bài toán kinh doanh":
+    st.title("🏢 Bài toán Kinh doanh")
+    
     st.markdown("""
     ### 📌 Vấn đề
     - Khách hàng có nhu cầu mua nhà tại các quận **Bình Thạnh, Gò Vấp, Phú Nhuận**
@@ -57,11 +61,14 @@ if menu == "Bài toán kinh doanh":
     - Cần phân cụm để hiểu rõ phân khúc thị trường
     
     ### 🎯 Mục tiêu
-    1. Đề xuất nhà bằng Hybrid Recommender
-    2. Phân cụm bằng KMeans
+    1. Đề xuất nhà dựa trên nội dung (TF-IDF + Cosine)
+    2. Phân cụm bằng KMeans, GMM, Agglomerative
+    3. Hybrid Recommender (nội dung + giá + vị trí)
     
     ### 📊 Dữ liệu
     - **7,881** bất động sản tại 3 quận
+    - Thuộc tính: giá, diện tích, số phòng, quận
+    - Mô tả chi tiết từ tin đăng
     """)
     
     col1, col2, col3 = st.columns(3)
@@ -74,32 +81,61 @@ if menu == "Bài toán kinh doanh":
         st.metric("Diện tích TB", f"{df['dien_tich_num'].mean():.0f} m²")
 
 # ==================== EVALUATION ====================
-elif menu == "Đánh giá Mô hình":
-    st.title("Đánh giá Mô hình")
+elif menu == "📊 Đánh giá Mô hình":
+    st.title("📊 Đánh giá Mô hình")
     
-    tab1, tab2 = st.tabs(["Phân cụm", "Đề xuất"])
+    tab1, tab2 = st.tabs(["Clustering", "Recommendation"])
     
     with tab1:
         st.subheader("Đánh giá phân cụm")
+        
         info = models['cluster_info']
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("KMeans", f"{info['kmeans_score']:.4f}")
             st.write(f"Cụm 0: {info['cluster_counts'][0]:,} BĐS")
             st.write(f"Cụm 1: {info['cluster_counts'][1]:,} BĐS")
+        
         with col2:
             st.metric("GMM", f"{info['gmm_score']:.4f}")
+            st.write("Điểm thấp nhất")
+        
+        with col3:
             st.metric("Agglomerative", f"{info['agg_score']:.4f}")
+            st.write("✅ **Tốt nhất**")
     
     with tab2:
         st.subheader("Đánh giá Recommender")
-        st.write("✅ **Hybrid** kết hợp nội dung (50%), giá (25%), vị trí (25%)")
+        st.write("""
+        **TF-IDF + Cosine:** Dựa trên nội dung mô tả
+        
+        **Hybrid:** Kết hợp 3 yếu tố
+        - Nội dung (50%)
+        - Giá (25%)
+        - Vị trí (25%)
+        
+        **✅ Khuyến nghị: Hybrid**
+        """)
 
 # ==================== PREDICTION ====================
-elif menu == "Dự đoán phân cụm":
-    st.title("Dự đoán phân cụm - KMeans")
+elif menu == "🎯 Dự đoán phân cụm":
+    st.title("🎯 Dự đoán phân cụm")
     
+    # Thêm thông tin hướng dẫn
+    with st.expander("📌 Hướng dẫn", expanded=False):
+        st.write("""
+        **Cách sử dụng:**
+        1. Nhập giá bán và diện tích
+        2. Chọn quận
+        3. Nhấn "Dự đoán" để xem kết quả phân cụm
+        
+        **Giải thích kết quả:**
+        - **Cụm 0:** Nhà phổ thông (giá ~6.5 tỷ, diện tích ~48m²)
+        - **Cụm 1:** Nhà cao cấp (giá ~20 tỷ, diện tích ~114m²)
+        """)
+    
+    # Form nhập liệu
     col1, col2 = st.columns(2)
     
     with col1:
@@ -108,9 +144,16 @@ elif menu == "Dự đoán phân cụm":
     
     with col2:
         quan = st.selectbox("📍 Quận", ["Bình Thạnh", "Gò Vấp", "Phú Nhuận"])
-        st.info(f"💡 Giá tham khảo {quan}: 6 - 22 tỷ")
+        # Thêm thông tin giá tham khảo theo quận
+        gia_tham_khao = {
+            "Bình Thạnh": "6.5 - 20 tỷ",
+            "Gò Vấp": "5.5 - 18 tỷ",
+            "Phú Nhuận": "6 - 22 tỷ"
+        }
+        st.info(f"💡 Giá tham khảo quận {quan.replace('_', ' ').title()}: {gia_tham_khao[quan]}")
     
     if st.button("🔮 Dự đoán", type="primary"):
+        # Tính toán
         gia_num = gia * 1e9
         price_per_m2 = gia_num / dien_tich
         quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
@@ -119,81 +162,125 @@ elif menu == "Dự đoán phân cụm":
         new_data = np.array([[gia_num, dien_tich, price_per_m2, quan_encoded]])
         new_scaled = models['scaler'].transform(new_data)
         
+        # Dự đoán
         kmeans_pred = models['kmeans'].predict(new_scaled)[0]
+        gmm_pred = models['gmm'].predict(new_scaled)[0]
         
         st.divider()
         st.subheader("📊 Kết quả dự đoán")
         
-        if kmeans_pred == 0:
-            st.success("🏠 **Phân khúc phổ thông**")
-            st.write("- Giá: ~6.5 tỷ\n- Diện tích: ~48 m²\n- Phù hợp: Gia đình trẻ, đầu tư")
+        # Hiển thị kết quả chi tiết
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            st.markdown("### 🎯 KMeans")
+            st.metric("Phân cụm", f"Cụm {kmeans_pred}")
+            
+            if kmeans_pred == 0:
+                st.success("🏠 **Phân khúc phổ thông**")
+                st.write("""
+                **Đặc điểm:**
+                - Giá: ~6.5 tỷ
+                - Diện tích: ~48 m²
+                - Phù hợp: Gia đình trẻ, đầu tư
+                """)
+            else:
+                st.success("🏰 **Phân khúc cao cấp**")
+                st.write("""
+                **Đặc điểm:**
+                - Giá: ~20 tỷ
+                - Diện tích: ~114 m²
+                - Phù hợp: Gia đình lớn, cao cấp
+                """)
+        
+        with col_b:
+            st.markdown("### 📊 GMM")
+            st.metric("Phân cụm", f"Cụm {gmm_pred}")
+            st.warning("⚠️ Độ tin cậy thấp hơn KMeans")
+            st.write("**Silhouette score:** 0.369")
+        
+        # Thêm thông tin so sánh
+        st.divider()
+        st.subheader("📈 Phân tích")
+        
+        # So sánh với giá trung bình
+        avg_price = models['df_recommend']['gia_ban_num'].mean() / 1e9
+        if gia > avg_price:
+            st.info(f"💰 Giá nhập ({gia} tỷ) cao hơn giá trung bình thị trường ({avg_price:.1f} tỷ)")
         else:
-            st.success("🏰 **Phân khúc cao cấp**")
-            st.write("- Giá: ~20 tỷ\n- Diện tích: ~114 m²\n- Phù hợp: Gia đình lớn, cao cấp")
+            st.info(f"💰 Giá nhập ({gia} tỷ) thấp hơn giá trung bình thị trường ({avg_price:.1f} tỷ)")
+        
+        # Gợi ý dựa trên kết quả
+        if kmeans_pred == 0:
+            st.success("💡 **Gợi ý:** Đây là phân khúc nhà phổ thông, phù hợp với nhu cầu ở hoặc đầu tư cho thuê.")
+        else:
+            st.success("💡 **Gợi ý:** Đây là phân khúc nhà cao cấp, phù hợp với khách hàng có tài chính mạnh, tìm kiếm không gian sống rộng rãi.")
 
 # ==================== RECOMMENDATION ====================
-elif menu == "Đề xuất bất động sản":
-    st.title("Đề xuất bất động sản - Hybrid")
+elif menu == "🔍 Đề xuất bất động sản":
+    st.title("🔍 Đề xuất bất động sản")
     
+    # Chọn bất động sản
     df = models['df_recommend']
-    available_quan = df['quan'].unique().tolist()
+    df_display = df.head(100).copy()
+    df_display['display'] = df_display.apply(
+        lambda x: f"{x['tieu_de'][:45]}... - {x['gia_ban']}", axis=1
+    )
     
-    selected_quan = st.selectbox("Chọn quận:", available_quan)
-    df_filtered = df[df['quan'] == selected_quan].copy()
+    selected_idx = st.selectbox(
+        "Chọn bất động sản:",
+        range(len(df_display)),
+        format_func=lambda x: df_display.iloc[x]['display']
+    )
     
-    if len(df_filtered) > 0:
-        df_display = df_filtered.copy()
-        df_display['display'] = df_display.apply(
-            lambda x: f"{str(x['tieu_de'])[:50]}... - {x['gia_ban']}", axis=1
-        )
+    # Hiển thị chi tiết
+    with st.expander("Xem chi tiết", expanded=True):
+        prop = df_display.iloc[selected_idx]
+        st.write(f"**Tiêu đề:** {prop['tieu_de']}")
+        st.write(f"**Giá:** {prop['gia_ban']} | **Diện tích:** {prop['dien_tich']} | **Quận:** {prop['quan']}")
+    
+    n_recommend = st.slider("Số lượng đề xuất:", 3, 10, 5)
+    rec_type = st.radio("Loại đề xuất:", ["Hybrid", "Content-based"])
+    
+    if st.button("Đề xuất", type="primary"):
+        sim_matrix = models['hybrid_sim'] if rec_type == "Hybrid" else models['cosine_sim']
         
-        selected_idx = st.selectbox(
-            "Chọn bất động sản:",
-            range(len(df_display)),
-            format_func=lambda x: df_display.iloc[x]['display']
-        )
+        sim_scores = list(enumerate(sim_matrix[selected_idx]))
+        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+        sim_scores = sim_scores[1:n_recommend+1]
         
-        with st.expander("📋 Xem chi tiết"):
-            prop = df_display.iloc[selected_idx]
-            st.write(f"**{prop['tieu_de']}**")
+        st.divider()
+        st.subheader("Kết quả đề xuất:")
+        
+        for i, (idx, score) in enumerate(sim_scores, 1):
+            prop = df.iloc[idx]
+            st.write(f"**{i}. {prop['tieu_de'][:80]}...**")
             st.write(f"💰 {prop['gia_ban']} | 📐 {prop['dien_tich']} | 📍 {prop['quan']}")
-        
-        n_recommend = st.slider("Số lượng đề xuất:", 3, 10, 5)
-        
-        if st.button("🔍 Đề xuất"):
-            original_idx = df_display.iloc[selected_idx].name
-            sim_matrix = models['hybrid_sim']  # Chỉ dùng Hybrid
-            
-            sim_scores = list(enumerate(sim_matrix[original_idx]))
-            same_quan_indices = df_filtered.index.tolist()
-            sim_scores = [(idx, score) for idx, score in sim_scores 
-                         if idx in same_quan_indices and idx != original_idx]
-            sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[:n_recommend]
-            
-            if sim_scores:
-                for i, (idx, score) in enumerate(sim_scores, 1):
-                    prop = df.iloc[idx]
-                    st.write(f"**{i}. {str(prop['tieu_de'])[:80]}...**")
-                    st.write(f"💰 {prop['gia_ban']} | 📐 {prop['dien_tich']} | 📍 {prop['quan']}")
-                    st.write(f"🎯 Độ tương đồng: {score:.3f}")
-                    st.divider()
-            else:
-                st.warning("Không tìm thấy BĐS tương tự!")
-    else:
-        st.error(f"Không có dữ liệu tại quận {selected_quan}!")
+            st.write(f"🎯 Độ tương đồng: {score:.3f}")
+            st.divider()
 
-# ==================== INFO TEAM ====================
-elif menu == "Thông tin nhóm":
-    st.title("Thông tin nhóm")
+elif menu == "👥 Info Team":
+    st.title("👥 Thông tin nhóm")
+    
     st.markdown("""
     **Đề tài:** Hệ thống Đề xuất & Phân cụm Bất động sản
     
     **Thành viên:**
     | STT | Họ và tên | Công việc |
     |-----|-----------|-----------|
-    | 1 | Đặng Đức Duy | Xử lý dữ liệu |
-    | 2 | Huỳnh Lê Xuân Ánh | Hệ thống đề xuất Hybrid |
-    | 3 | Nguyễn Thị Tuyết Vân | Phân cụm KMeans |
+    | 1 | Đặng Đức Duy | Xử lý dữ liệu  |
+    | 2 | [Huỳnh Lê Xuân Ánh ] | Xây dựng models Hệ thống đề xuất |
+    | 3 | [Nguyễn Thị Tuyết Vân] | Xây dựng models hệ thống phân cụm BĐS |
                 
-    **Công nghệ:** Scikit-learn, Streamlit
+    **Công nghệ:** 
+        Scikit-learn 
+            - KMeans 
+            - Gaussian Mixture Model (GMM) 
+            - Agglomerative Clustering 
+        PySpark 
+            - KMeans 
+            - Gaussian Mixture Model (GMM)
+            - BisectingKMeans
+    
     """)
+    
