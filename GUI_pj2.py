@@ -13,9 +13,15 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==================== ĐƯỜNG DẪN FILE ====================
-PATH_BT1 = r"C:\Users\Admin\Desktop\project2\file_pkl_bt1"
-PATH_BT2 = r"C:\Users\Admin\Desktop\project2\file_pkl_bt2"
+import os
+
+# ✅ ĐÚNG - Sử dụng đường dẫn tương đối
+# Lấy đường dẫn thư mục hiện tại (nơi chứa file app.py)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Tạo đường dẫn đến các thư mục con
+PATH_BT1 = os.path.join(BASE_DIR, "file_pkl_bt1")
+PATH_BT2 = os.path.join(BASE_DIR, "file_pkl_bt2")
 
 # ==================== LOAD MODELS ====================
 @st.cache_resource
