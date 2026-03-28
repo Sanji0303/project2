@@ -52,8 +52,8 @@ def check_paths():
 # ==================== LOAD MODELS ====================
 @st.cache_resource
 def load_models():
-"""Load tất cả các model với xử lý lỗi"""
-models = {}
+    """Load tất cả các model với xử lý lỗi"""
+    models = {}
 
 try:
     # Load BT1 models
