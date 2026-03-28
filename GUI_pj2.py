@@ -205,81 +205,36 @@ elif menu == "Đề xuất bất động sản":
     st.title("Đề xuất bất động sản")
     
     df = models['df_recommend']
+    df_display = df.head(100).copy()
+    df_display['display'] = df_display.apply(lambda x: f"{str(x['tieu_de'])[:45]}... - {x['gia_ban']}", axis=1)
     
-    # ===== THÊM BỘ LỌC QUẬN =====
-    # Lấy danh sách các quận có trong dữ liệu
-    available_quan = df['quan'].unique().tolist()
+    selected_idx = st.selectbox("Chọn bất động sản:", range(len(df_display)), 
+                                format_func=lambda x: df_display.iloc[x]['display'])
     
-    # Tạo bộ lọc quận
-    st.subheader("📍 Lọc theo quận")
-    selected_quan = st.multiselect(
-        "Chọn quận muốn xem:",
-        options=available_quan,
-        default=available_quan  # Mặc định hiển thị tất cả
-    )
+    with st.expander("📋 Xem chi tiết", expanded=True):
+        prop = df_display.iloc[selected_idx]
+        st.write(f"**Tiêu đề:** {prop['tieu_de']}")
+        st.write(f"**Giá:** {prop['gia_ban']} | **Diện tích:** {prop['dien_tich']} | **Quận:** {prop['quan']}")
     
-    # Lọc dữ liệu theo quận đã chọn
-    if selected_quan:
-        df_filtered = df[df['quan'].isin(selected_quan)]
-    else:
-        df_filtered = df
+    n_recommend = st.slider("Số lượng đề xuất:", 3, 10, 5)
+    rec_type = st.radio("Loại đề xuất:", ["Hybrid", "Content-based"])
     
-    # Hiển thị số lượng BĐS sau khi lọc
-    st.info(f"📊 Hiển thị {len(df_filtered)} bất động sản tại các quận: {', '.join(selected_quan)}")
-    
-    # Giới hạn hiển thị 100 BĐS để dễ chọn
-    df_display = df_filtered.head(100).copy()
-    
-    if len(df_display) == 0:
-        st.warning("Không có bất động sản nào trong quận đã chọn!")
-    else:
-        df_display['display'] = df_display.apply(
-            lambda x: f"[{x['quan']}] {str(x['tieu_de'])[:45]}... - {x['gia_ban']}", 
-            axis=1
-        )
+    if st.button("🔍 Đề xuất", type="primary"):
+        sim_matrix = models['hybrid_sim'] if rec_type == "Hybrid" else models['cosine_sim']
         
-        selected_idx = st.selectbox(
-            "Chọn bất động sản:",
-            range(len(df_display)),
-            format_func=lambda x: df_display.iloc[x]['display']
-        )
+        sim_scores = list(enumerate(sim_matrix[selected_idx]))
+        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+        sim_scores = sim_scores[1:n_recommend+1]
         
-        with st.expander("📋 Xem chi tiết", expanded=True):
-            prop = df_display.iloc[selected_idx]
-            st.write(f"**Tiêu đề:** {prop['tieu_de']}")
-            st.write(f"**Giá:** {prop['gia_ban']} | **Diện tích:** {prop['dien_tich']} | **Quận:** {prop['quan']}")
+        st.divider()
+        st.subheader("🏠 Kết quả đề xuất:")
         
-        n_recommend = st.slider("Số lượng đề xuất:", 3, 10, 5)
-        rec_type = st.radio("Loại đề xuất:", ["Hybrid", "Content-based"])
-        
-        if st.button("🔍 Đề xuất", type="primary"):
-            # Lấy index gốc trong dataframe đầy đủ
-            original_idx = df_display.iloc[selected_idx].name
-            
-            sim_matrix = models['hybrid_sim'] if rec_type == "Hybrid" else models['cosine_sim']
-            
-            # Lấy độ tương đồng và lọc theo quận đã chọn
-            sim_scores = list(enumerate(sim_matrix[original_idx]))
-            
-            # Chỉ lấy các BĐS trong cùng quận đã chọn (tùy chọn)
-            # Bỏ comment dưới đây nếu muốn chỉ đề xuất trong quận đã chọn
-            # valid_indices = df_filtered.index.tolist()
-            # sim_scores = [(idx, score) for idx, score in sim_scores if idx in valid_indices]
-            
-            sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-            sim_scores = [x for x in sim_scores if x[0] != original_idx][:n_recommend]
-            
+        for i, (idx, score) in enumerate(sim_scores, 1):
+            prop = df.iloc[idx]
+            st.write(f"**{i}. {str(prop['tieu_de'])[:80]}...**")
+            st.write(f"💰 {prop['gia_ban']} | 📐 {prop['dien_tich']} | 📍 {prop['quan']}")
+            st.write(f"🎯 Độ tương đồng: {score:.3f}")
             st.divider()
-            st.subheader("🏠 Kết quả đề xuất:")
-            
-            for i, (idx, score) in enumerate(sim_scores, 1):
-                prop = df.iloc[idx]
-                # Thêm badge quận
-                quan_badge = "🏠" if prop['quan'] == "Bình Thạnh" else "📍" if prop['quan'] == "Gò Vấp" else "🏘️"
-                st.write(f"**{i}. {quan_badge} [{prop['quan']}] {str(prop['tieu_de'])[:80]}...**")
-                st.write(f"💰 {prop['gia_ban']} | 📐 {prop['dien_tich']} | 📍 {prop['quan']}")
-                st.write(f"🎯 Độ tương đồng: {score:.3f}")
-                st.divider()
 
 # ==================== INFO TEAM ====================
 elif menu == "Thông tin nhóm":
