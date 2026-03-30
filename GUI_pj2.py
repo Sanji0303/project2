@@ -478,7 +478,6 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                 
                 # ========== HÀM TIỀN XỬ LÝ ==========
                 def clean_batch_recommend_data(df):
-                    """Làm sạch dữ liệu batch cho gợi ý"""
                     
                     # Chuẩn hóa tên cột
                     rename_map = {
