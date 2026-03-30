@@ -153,7 +153,7 @@ st.sidebar.info("""
 
 - **Nguyễn Thị Tuyết Vân** (Phân tích thị trường)
 - **Contact: tuyetvan1418393@gmail.com**
-
+""")
 st.sidebar.caption("© 2024 - Real Estate Recommender System")
 
 # ==================== TRANG CHỦ ====================
