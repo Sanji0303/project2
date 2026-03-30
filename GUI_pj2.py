@@ -146,10 +146,14 @@ st.sidebar.info("""
 
 👥 **Thành viên:**
 - **Đặng Đức Duy** (Dữ liệu)
-- **Huỳnh Lê Xuân Ánh** (Hệ thống gợi ý)
-- **Nguyễn Thị Tuyết Vân** (Phân tích thị trường)
+- *Contact:  duydd1411@gmail.com*
 
-📧 **Liên hệ:** projectnhom7@gmail.com
+- **Huỳnh Lê Xuân Ánh** (Hệ thống gợi ý)
+- *Contact:  huynhlexuananh2002@gmail.com*
+
+- **Nguyễn Thị Tuyết Vân** (Phân tích thị trường)
+- *Contact:  tuyetvan1418393@gmail.com*
+
 """)
 st.sidebar.caption("© 2024 - Real Estate Recommender System")
 
