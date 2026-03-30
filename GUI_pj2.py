@@ -274,117 +274,191 @@ elif menu == "🎯 Khám phá phân khúc":
                 else:
                     st.info("📐 Diện tích đạt chuẩn trung bình")
     
-    # ==================== TAB 2: UPLOAD CSV (PHÂN TÍCH HÀNG LOẠT) ====================
-    with tab2:
-        st.markdown("""
-        ### 📂 Phân tích phân khúc hàng loạt bằng file CSV
-        
-        **Hướng dẫn:**
-        1. Tải file mẫu để tham khảo cấu trúc dữ liệu chuẩn
-        2. Hoặc upload file CSV của bạn (hệ thống sẽ tự động nhận diện)
-        3. Hệ thống sẽ phân tích từng bất động sản và cho biết thuộc phân khúc nào
-        
-        **Các cột hỗ trợ:** giá bán, diện tích, quận
-        """)
-        
-        # Nút tải file mẫu
-        if st.button("📥 Tải file mẫu CSV", key="download_template_cluster"):
-            sample_data = pd.DataFrame({
-                "giá bán (tỷ)": [2.5, 5.8, 12.5, 18.0, 35.0, 4.2, 8.5],
-                "diện tích (m²)": [35, 55, 85, 110, 250, 45, 70],
-                "quận": ["Bình Thạnh", "Gò Vấp", "Phú Nhuận", "Bình Thạnh", "Gò Vấp", "Phú Nhuận", "Bình Thạnh"]
-            })
-            csv = sample_data.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="📥 Tải file mẫu (CSV)",
-                data=csv,
-                file_name="mau_phan_tich_phan_khuc.csv",
-                mime="text/csv",
-                key="download_cluster_btn"
-            )
-        
-        st.divider()
-        
-        # Upload file
-        uploaded_file = st.file_uploader(
-            "📁 Chọn file CSV của bạn",
-            type=["csv"],
-            help="Hệ thống tự động nhận diện cột dữ liệu (tiếng Việt hoặc tiếng Anh).",
-            key="csv_uploader_cluster"
+# ==================== TAB 2: UPLOAD CSV (PHÂN TÍCH HÀNG LOẠT) ====================
+with tab2:
+    st.markdown("""
+    ### 📂 Phân tích phân khúc hàng loạt bằng file CSV
+    
+    **Hướng dẫn:**
+    1. Tải file mẫu để tham khảo cấu trúc dữ liệu chuẩn
+    2. Hoặc upload file CSV của bạn (hệ thống sẽ tự động nhận diện)
+    3. Hệ thống sẽ phân tích từng bất động sản và cho biết thuộc phân khúc nào
+    
+    **Các cột hỗ trợ:** giá bán, diện tích, quận
+    """)
+    
+    # Nút tải file mẫu
+    if st.button("📥 Tải file mẫu CSV", key="download_template_cluster"):
+        sample_data = pd.DataFrame({
+            "giá bán (tỷ)": [2.5, 5.8, 12.5, 18.0, 35.0, 4.2, 8.5],
+            "diện tích (m²)": [35, 55, 85, 110, 250, 45, 70],
+            "quận": ["Bình Thạnh", "Gò Vấp", "Phú Nhuận", "Bình Thạnh", "Gò Vấp", "Phú Nhuận", "Bình Thạnh"]
+        })
+        csv = sample_data.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 Tải file mẫu (CSV)",
+            data=csv,
+            file_name="mau_phan_tich_phan_khuc.csv",
+            mime="text/csv",
+            key="download_cluster_btn"
         )
-        
-        if uploaded_file is not None:
-            try:
-                # Đọc file gốc
-                df_raw = pd.read_csv(uploaded_file)
-                st.info(f"📄 File đã tải: {len(df_raw)} dòng, {len(df_raw.columns)} cột")
+    
+    st.divider()
+    
+    # Upload file
+    uploaded_file = st.file_uploader(
+        "📁 Chọn file CSV của bạn",
+        type=["csv"],
+        help="Hệ thống tự động nhận diện cột dữ liệu (tiếng Việt hoặc tiếng Anh).",
+        key="csv_uploader_cluster"
+    )
+    
+    if uploaded_file is not None:
+        try:
+            # Đọc file gốc
+            df_raw = pd.read_csv(uploaded_file)
+            st.info(f"📄 File đã tải: {len(df_raw)} dòng, {len(df_raw.columns)} cột")
+            
+            # Hiển thị tên cột để debug
+            with st.expander("🔍 Xem cấu trúc file (để kiểm tra)", expanded=False):
+                st.write("**Tên các cột trong file:**")
+                st.write(list(df_raw.columns))
+                st.write("**5 dòng đầu tiên:**")
+                st.dataframe(df_raw.head(5), use_container_width=True)
+            
+            # ========== HÀM TIỀN XỬ LÝ LINH HOẠT ==========
+            def clean_batch_cluster_data(df):
+                """Làm sạch dữ liệu batch cho phân tích phân khúc - phiên bản linh hoạt"""
                 
-                with st.expander("📋 Xem trước dữ liệu gốc", expanded=False):
-                    st.dataframe(df_raw.head(10), use_container_width=True)
+                # 1. Chuẩn hóa tên cột (không phân biệt hoa thường, khoảng trắng)
+                df.columns = df.columns.str.strip().str.lower()
                 
-                # ========== HÀM TIỀN XỬ LÝ ==========
-                def clean_batch_cluster_data(df):
-                    """Làm sạch dữ liệu batch cho phân tích phân khúc"""
-                    
-                    # Chuẩn hóa tên cột
-                    rename_map = {
-                        'giá bán': 'gia_ban', 'giá': 'gia_ban', 'price': 'gia_ban',
-                        'diện tích': 'dien_tich', 'area': 'dien_tich',
-                        'quận': 'quan', 'district': 'quan'
-                    }
-                    df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
-                    
-                    # Xử lý cột giá
-                    if 'gia_ban' in df.columns:
-                        df['gia_ban'] = pd.to_numeric(df['gia_ban'], errors='coerce')
-                        df['gia_ban'] = df['gia_ban'].fillna(0)
+                # 2. Tìm cột giá
+                price_col = None
+                for col in df.columns:
+                    if any(kw in col for kw in ['giá', 'gia', 'price', 'giá bán', 'gia_ban']):
+                        price_col = col
+                        break
+                
+                # 3. Tìm cột diện tích
+                area_col = None
+                for col in df.columns:
+                    if any(kw in col for kw in ['diện tích', 'dien_tich', 'area', 'dientich']):
+                        area_col = col
+                        break
+                
+                # 4. Tìm cột quận
+                quan_col = None
+                for col in df.columns:
+                    if any(kw in col for kw in ['quận', 'quan', 'district', 'khu vực']):
+                        quan_col = col
+                        break
+                
+                # Hiển thị thông tin tìm được
+                st.write("**🔍 Hệ thống đã nhận diện:**")
+                st.write(f"- Cột giá: `{price_col}`" if price_col else "- ⚠️ Không tìm thấy cột giá")
+                st.write(f"- Cột diện tích: `{area_col}`" if area_col else "- ⚠️ Không tìm thấy cột diện tích")
+                st.write(f"- Cột quận: `{quan_col}`" if quan_col else "- ⚠️ Không tìm thấy cột quận (sẽ dùng mặc định)")
+                
+                if price_col is None or area_col is None:
+                    st.error("❌ Không tìm thấy cột giá hoặc diện tích. Vui lòng kiểm tra lại file!")
+                    return None
+                
+                # 5. Tạo dataframe chuẩn
+                df_clean = pd.DataFrame()
+                df_clean['gia_ban_raw'] = df[price_col]
+                df_clean['dien_tich_raw'] = df[area_col]
+                df_clean['quan_raw'] = df[quan_col] if quan_col else "Gò Vấp"
+                
+                # 6. Xử lý cột giá (chuyển đổi linh hoạt)
+                def parse_price(value):
+                    if pd.isna(value):
+                        return 0
+                    # Nếu là string, loại bỏ ký tự đặc biệt
+                    if isinstance(value, str):
+                        value = value.replace(' tỷ', '').replace('triệu', '').replace(',', '').strip()
+                    try:
+                        num = float(value)
+                        # Nếu giá trị > 1000, có thể đang là triệu, chuyển sang tỷ
+                        if num > 1000:
+                            num = num / 1000
+                        return num
+                    except:
+                        return 0
+                
+                df_clean['gia_ban'] = df_clean['gia_ban_raw'].apply(parse_price)
+                
+                # 7. Xử lý cột diện tích
+                def parse_area(value):
+                    if pd.isna(value):
+                        return 0
+                    if isinstance(value, str):
+                        value = value.replace(' m²', '').replace('m2', '').replace(',', '').strip()
+                    try:
+                        return float(value)
+                    except:
+                        return 0
+                
+                df_clean['dien_tich'] = df_clean['dien_tich_raw'].apply(parse_area)
+                
+                # 8. Xử lý cột quận
+                def parse_quan(value):
+                    if pd.isna(value):
+                        return "Gò Vấp"
+                    value = str(value).strip()
+                    if 'Bình Thạnh' in value or 'binh thanh' in value.lower():
+                        return "Bình Thạnh"
+                    elif 'Phú Nhuận' in value or 'phu nhuan' in value.lower():
+                        return "Phú Nhuận"
                     else:
-                        st.error("❌ Không tìm thấy cột giá bán")
-                        return None
-                    
-                    # Xử lý cột diện tích
-                    if 'dien_tich' in df.columns:
-                        df['dien_tich'] = pd.to_numeric(df['dien_tich'], errors='coerce')
-                        df['dien_tich'] = df['dien_tich'].fillna(0)
-                    else:
-                        st.error("❌ Không tìm thấy cột diện tích")
-                        return None
-                    
-                    # Xử lý cột quận
-                    if 'quan' not in df.columns:
-                        df['quan'] = "Gò Vấp"  # Giá trị mặc định
-                    else:
-                        # Chuẩn hóa tên quận
-                        quan_std = {"Bình Thạnh": "Bình Thạnh", "Gò Vấp": "Gò Vấp", "Phú Nhuận": "Phú Nhuận"}
-                        df['quan'] = df['quan'].astype(str).str.strip()
-                        df['quan'] = df['quan'].apply(lambda x: quan_std.get(x, "Gò Vấp"))
-                    
-                    return df
+                        return "Gò Vấp"
                 
-                # Tiền xử lý
-                with st.spinner("🔄 Đang xử lý dữ liệu..."):
-                    df_cleaned = clean_batch_cluster_data(df_raw)
-                    
-                    if df_cleaned is None:
-                        st.stop()
-                    
-                    with st.expander("📊 Xem trước dữ liệu sau xử lý", expanded=False):
-                        st.dataframe(df_cleaned.head(10), use_container_width=True)
-                    
-                    # Loại bỏ dòng có giá trị không hợp lệ
-                    df_cleaned = df_cleaned[(df_cleaned['gia_ban'] > 0) & (df_cleaned['dien_tich'] > 0)]
-                    
-                    if len(df_cleaned) == 0:
-                        st.warning("⚠️ Không có dữ liệu hợp lệ để phân tích!")
-                        st.stop()
+                df_clean['quan'] = df_clean['quan_raw'].apply(parse_quan)
                 
-                # ========== PHÂN TÍCH PHÂN KHÚC ==========
-                quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
-                results = []
+                # 9. Loại bỏ dòng không hợp lệ
+                invalid_count = len(df_clean[(df_clean['gia_ban'] <= 0) | (df_clean['dien_tich'] <= 0)])
+                if invalid_count > 0:
+                    st.warning(f"⚠️ Có {invalid_count} dòng có giá trị không hợp lệ (giá <= 0 hoặc diện tích <= 0) sẽ được bỏ qua.")
                 
+                df_clean = df_clean[(df_clean['gia_ban'] > 0) & (df_clean['dien_tich'] > 0)]
+                
+                return df_clean[['gia_ban', 'dien_tich', 'quan']]
+            
+            # Tiền xử lý
+            with st.spinner("🔄 Đang xử lý dữ liệu..."):
+                df_cleaned = clean_batch_cluster_data(df_raw)
+                
+                if df_cleaned is None:
+                    st.stop()
+                
+                with st.expander("📊 Xem trước dữ liệu sau xử lý", expanded=True):
+                    st.dataframe(df_cleaned.head(10), use_container_width=True)
+                    st.write(f"**Số dòng hợp lệ sau xử lý:** {len(df_cleaned)}")
+                
+                if len(df_cleaned) == 0:
+                    st.warning("⚠️ Không có dữ liệu hợp lệ để phân tích! Vui lòng kiểm tra lại file.")
+                    st.info("""
+                    **Yêu cầu dữ liệu hợp lệ:**
+                    - Giá bán > 0 (đơn vị: tỷ đồng)
+                    - Diện tích > 0 (đơn vị: m²)
+                    
+                    **Ví dụ dữ liệu hợp lệ:**
+                    | giá bán | diện tích | quận |
+                    |---------|-----------|------|
+                    | 5.2     | 75        | Bình Thạnh |
+                    | 8.5     | 90        | Gò Vấp |
+                    | 12.0    | 110       | Phú Nhuận |
+                    """)
+                    st.stop()
+            
+            # ========== PHÂN TÍCH PHÂN KHÚC ==========
+            quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
+            results = []
+            
+            with st.spinner("🔍 Đang phân tích phân khúc..."):
                 for idx, row in df_cleaned.iterrows():
                     try:
-                        gia_num = row['gia_ban'] * 1e9 if row['gia_ban'] < 100 else row['gia_ban'] * 1e9
+                        gia_num = row['gia_ban'] * 1e9
                         dien_tich = row['dien_tich']
                         price_per_m2 = gia_num / dien_tich
                         quan_encoded = quan_map.get(row['quan'], 0)
@@ -413,30 +487,34 @@ elif menu == "🎯 Khám phá phân khúc":
                             "Quận": row.get('quan', 'N/A'),
                             "Phân khúc": f"Lỗi: {str(e)[:50]}"
                         })
+            
+            df_results = pd.DataFrame(results)
+            
+            # ========== THỐNG KÊ ==========
+            st.subheader("📊 Thống kê phân khúc")
+            
+            # Đếm số lượng theo phân khúc
+            valid_results = df_results[df_results["Phân khúc"].str.contains("Phổ thông|Trung cấp|Khá giả|Cao cấp|Siêu cao cấp|Hạng sang", na=False)]
+            
+            if len(valid_results) > 0:
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("🏠 Tổng số BĐS", len(valid_results))
+                with col2:
+                    segment_counts = valid_results["Phân khúc"].value_counts()
+                    st.metric("📊 Số phân khúc", len(segment_counts))
                 
-                df_results = pd.DataFrame(results)
-                
-                # ========== THỐNG KÊ ==========
-                st.subheader("📊 Thống kê phân khúc")
-                
-                # Đếm số lượng theo phân khúc
-                segment_counts = df_results[df_results["Phân khúc"].str.contains("Phổ thông|Trung cấp|Khá giả|Cao cấp|Siêu cao cấp|Hạng sang", na=False)]["Phân khúc"].value_counts()
-                
-                if len(segment_counts) > 0:
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric("🏠 Tổng số BĐS", len(df_results))
-                    with col2:
-                        st.metric("📊 Số phân khúc", len(segment_counts))
-                    
-                    st.subheader("📊 Phân bố theo phân khúc")
-                    st.bar_chart(segment_counts)
-                
-                # ========== HIỂN THỊ KẾT QUẢ ==========
-                st.subheader("📋 Kết quả phân tích phân khúc")
-                st.dataframe(df_results, use_container_width=True, height=500)
-                
-                # ========== TẢI KẾT QUẢ ==========
+                st.subheader("📊 Phân bố theo phân khúc")
+                st.bar_chart(segment_counts)
+            else:
+                st.info("Không có dữ liệu hợp lệ để hiển thị thống kê.")
+            
+            # ========== HIỂN THỊ KẾT QUẢ ==========
+            st.subheader("📋 Kết quả phân tích phân khúc")
+            st.dataframe(df_results, use_container_width=True, height=500)
+            
+            # ========== TẢI KẾT QUẢ ==========
+            if len(df_results) > 0:
                 csv_results = df_results.to_csv(index=False).encode('utf-8-sig')
                 st.download_button(
                     label="📥 Tải kết quả phân tích (CSV)",
@@ -447,10 +525,10 @@ elif menu == "🎯 Khám phá phân khúc":
                 )
                 
                 st.success(f"✅ Đã phân tích xong {len(df_results)} bất động sản!")
-                
-            except Exception as e:
-                st.error(f"❌ Lỗi khi xử lý file: {str(e)}")
-                st.info("Vui lòng kiểm tra lại định dạng file CSV hoặc tải file mẫu để tham khảo.")
+            
+        except Exception as e:
+            st.error(f"❌ Lỗi khi xử lý file: {str(e)}")
+            st.info("Vui lòng kiểm tra lại định dạng file CSV hoặc tải file mẫu để tham khảo.")
 
 # ==================== TÌM KIẾM & GỢI Ý ====================
 elif menu == "🔍 Tìm kiếm & Gợi ý":
