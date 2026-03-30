@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # app_final.py
+=======
+# app.py - Phiên bản chỉ dùng Hybrid, bỏ cosine_sim hoàn toàn
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -105,6 +109,7 @@ with st.spinner("Đang tải mô hình..."):
 # ==================== SIDEBAR MENU ====================
 st.sidebar.title("🏠 MENU")
 menu = st.sidebar.radio(
+<<<<<<< HEAD
     "Chọn chức năng",
     ["📊 Bài toán kinh doanh", "📈 Đánh giá Mô hình", "🔮 Dự đoán phân cụm", "🏠 Đề xuất bất động sản", "👥 Đội ngũ phát triển"]
 )
@@ -125,6 +130,15 @@ st.sidebar.caption("© 2024 - Hệ thống Đề xuất & Phân cụm Bất đ�
 # 1. BÀI TOÁN KINH DOANH
 if menu == "📊 Bài toán kinh doanh":
     st.title("📊 Bài toán Kinh doanh")
+=======
+    "MENU",
+    ["🏢 Bài toán kinh doanh", "📊 Đánh giá Mô hình", "🎯 Dự đoán phân cụm", "🔍 Đề xuất bất động sản", "👥 Info Team"]
+)
+
+# ==================== BUSINESS PROBLEM ====================
+if menu == "🏢 Bài toán kinh doanh":
+    st.title("🏢 Bài toán Kinh doanh")
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
     
     st.markdown(f"""
     ### 📌 Vấn đề
@@ -151,6 +165,13 @@ if menu == "📊 Bài toán kinh doanh":
         st.metric("Giá trung bình", f"{df['gia_ban_num'].mean()/1e9:.1f} tỷ")
     with col3:
         st.metric("Diện tích TB", f"{df['dien_tich_num'].mean():.0f} m²")
+<<<<<<< HEAD
+=======
+
+# ==================== EVALUATION ====================
+elif menu == "📊 Đánh giá Mô hình":
+    st.title("📊 Đánh giá Mô hình")
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
     
     # Footer thông tin nhóm
     st.markdown("---")
@@ -176,6 +197,7 @@ elif menu == "📈 Đánh giá Mô hình":
         **KMeans với 6 cụm đạt 0.4796 → Cấu trúc cụm ở mức trung bình khá!**
         """)
         
+<<<<<<< HEAD
         # Hiển thị phân bố số lượng
         st.subheader("📊 Phân bố số lượng theo 6 cụm")
         cluster_counts = {cluster: info['count'] for cluster, info in models['cluster_info'].items()}
@@ -203,6 +225,11 @@ elif menu == "📈 Đánh giá Mô hình":
                 with col3:
                     st.write(f"**Khoảng diện tích:** {info['area_range']}")
                     st.write(f"**🎯 {info['description']}**")
+=======
+        with col3:
+            st.metric("Agglomerative", f"{info['agg_score']:.4f}")
+            st.write("✅ **Tốt nhất**")
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
     
     with tab2:
         st.subheader("Đánh giá Recommender")
@@ -217,6 +244,7 @@ elif menu == "📈 Đánh giá Mô hình":
         - Phù hợp với thị trường bất động sản
         - Đã tối ưu dung lượng (bỏ cosine_sim.pkl)
         """)
+<<<<<<< HEAD
     
     # Footer thông tin nhóm
     st.markdown("---")
@@ -228,6 +256,16 @@ elif menu == "🔮 Dự đoán phân cụm":
     
     with st.expander("📌 Hướng dẫn sử dụng & 6 phân khúc BĐS", expanded=True):
         st.markdown("""
+=======
+
+# ==================== PREDICTION ====================
+elif menu == "🎯 Dự đoán phân cụm":
+    st.title("🎯 Dự đoán phân cụm")
+    
+    # Thêm thông tin hướng dẫn
+    with st.expander("📌 Hướng dẫn", expanded=False):
+        st.write("""
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
         **Cách sử dụng:**
         1. Nhập giá bán và diện tích
         2. Chọn quận
@@ -269,6 +307,7 @@ elif menu == "🔮 Dự đoán phân cụm":
                 ---
                 """)
     
+    # Form nhập liệu
     col1, col2 = st.columns(2)
     
     with col1:
@@ -277,10 +316,23 @@ elif menu == "🔮 Dự đoán phân cụm":
     
     with col2:
         quan = st.selectbox("📍 Quận", ["Bình Thạnh", "Gò Vấp", "Phú Nhuận"])
+<<<<<<< HEAD
         st.info(f"💡 Giá tham khảo {quan}: 5 - 25 tỷ")
     
     if st.button("🔮 Dự đoán cụm", type="primary"):
         # Tính toán features
+=======
+        # Thêm thông tin giá tham khảo theo quận
+        gia_tham_khao = {
+            "Bình Thạnh": "6.5 - 20 tỷ",
+            "Gò Vấp": "5.5 - 18 tỷ",
+            "Phú Nhuận": "6 - 22 tỷ"
+        }
+        st.info(f"💡 Giá tham khảo quận {quan.replace('_', ' ').title()}: {gia_tham_khao[quan]}")
+    
+    if st.button("🔮 Dự đoán", type="primary"):
+        # Tính toán
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
         gia_num = gia * 1e9
         price_per_m2 = gia_num / dien_tich
         
@@ -291,16 +343,23 @@ elif menu == "🔮 Dự đoán phân cụm":
         features = models['features_kmeans']
         new_data = np.array([[gia_num, dien_tich, price_per_m2, quan_encoded]])
         
+<<<<<<< HEAD
         # Scale và dự đoán
         new_scaled = models['scaler'].transform(new_data)
         cluster_pred = models['kmeans'].predict(new_scaled)[0]
         
         # Lấy thông tin cụm
         cluster_info = models['cluster_info'][cluster_pred]
+=======
+        # Dự đoán
+        kmeans_pred = models['kmeans'].predict(new_scaled)[0]
+        gmm_pred = models['gmm'].predict(new_scaled)[0]
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
         
         st.divider()
         st.subheader("📊 Kết quả dự đoán")
         
+<<<<<<< HEAD
         # Hiển thị kết quả nổi bật
         st.success(f"### {cluster_info['icon']} BĐS thuộc **Cụm {cluster_pred}**")
         st.info(f"### {cluster_info['segment']}")
@@ -316,9 +375,43 @@ elif menu == "🔮 Dự đoán phân cụm":
         st.write(f"**📈 Phân tích:** {cluster_info['description']}")
         
         # So sánh với BĐS nhập
+=======
+        # Hiển thị kết quả chi tiết
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            st.markdown("### 🎯 KMeans")
+            st.metric("Phân cụm", f"Cụm {kmeans_pred}")
+            
+            if kmeans_pred == 0:
+                st.success("🏠 **Phân khúc phổ thông**")
+                st.write("""
+                **Đặc điểm:**
+                - Giá: ~6.5 tỷ
+                - Diện tích: ~48 m²
+                - Phù hợp: Gia đình trẻ, đầu tư
+                """)
+            else:
+                st.success("🏰 **Phân khúc cao cấp**")
+                st.write("""
+                **Đặc điểm:**
+                - Giá: ~20 tỷ
+                - Diện tích: ~114 m²
+                - Phù hợp: Gia đình lớn, cao cấp
+                """)
+        
+        with col_b:
+            st.markdown("### 📊 GMM")
+            st.metric("Phân cụm", f"Cụm {gmm_pred}")
+            st.warning("⚠️ Độ tin cậy thấp hơn KMeans")
+            st.write("**Silhouette score:** 0.369")
+        
+        # Thêm thông tin so sánh
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
         st.divider()
         st.subheader("📊 So sánh với đặc điểm cụm")
         
+<<<<<<< HEAD
         col1, col2 = st.columns(2)
         with col1:
             price_diff = gia - cluster_info['avg_price']
@@ -350,8 +443,28 @@ elif menu == "🔮 Dự đoán phân cụm":
 # ==================== ĐỀ XUẤT BẤT ĐỘNG SẢN ====================
 elif menu == "🏠 Đề xuất bất động sản":
     st.title("🏠 Tìm kiếm & Đề xuất bất động sản")
+=======
+        # So sánh với giá trung bình
+        avg_price = models['df_recommend']['gia_ban_num'].mean() / 1e9
+        if gia > avg_price:
+            st.info(f"💰 Giá nhập ({gia} tỷ) cao hơn giá trung bình thị trường ({avg_price:.1f} tỷ)")
+        else:
+            st.info(f"💰 Giá nhập ({gia} tỷ) thấp hơn giá trung bình thị trường ({avg_price:.1f} tỷ)")
+        
+        # Gợi ý dựa trên kết quả
+        if kmeans_pred == 0:
+            st.success("💡 **Gợi ý:** Đây là phân khúc nhà phổ thông, phù hợp với nhu cầu ở hoặc đầu tư cho thuê.")
+        else:
+            st.success("💡 **Gợi ý:** Đây là phân khúc nhà cao cấp, phù hợp với khách hàng có tài chính mạnh, tìm kiếm không gian sống rộng rãi.")
+
+# ==================== RECOMMENDATION ====================
+elif menu == "🔍 Đề xuất bất động sản":
+    st.title("🔍 Đề xuất bất động sản")
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
     
+    # Chọn bất động sản
     df = models['df_recommend']
+<<<<<<< HEAD
     
     # Khởi tạo session state để lưu kết quả tìm kiếm
     if 'search_results' not in st.session_state:
@@ -653,11 +766,53 @@ elif menu == "🏠 Đề xuất bất động sản":
 # 5. ĐỘI NGŨ PHÁT TRIỂN
 elif menu == "👥 Đội ngũ phát triển":
     st.title("👥 Đội ngũ phát triển")
+=======
+    df_display = df.head(100).copy()
+    df_display['display'] = df_display.apply(
+        lambda x: f"{x['tieu_de'][:45]}... - {x['gia_ban']}", axis=1
+    )
+    
+    selected_idx = st.selectbox(
+        "Chọn bất động sản:",
+        range(len(df_display)),
+        format_func=lambda x: df_display.iloc[x]['display']
+    )
+    
+    # Hiển thị chi tiết
+    with st.expander("Xem chi tiết", expanded=True):
+        prop = df_display.iloc[selected_idx]
+        st.write(f"**Tiêu đề:** {prop['tieu_de']}")
+        st.write(f"**Giá:** {prop['gia_ban']} | **Diện tích:** {prop['dien_tich']} | **Quận:** {prop['quan']}")
+    
+    n_recommend = st.slider("Số lượng đề xuất:", 3, 10, 5)
+    rec_type = st.radio("Loại đề xuất:", ["Hybrid", "Content-based"])
+    
+    if st.button("Đề xuất", type="primary"):
+        sim_matrix = models['hybrid_sim'] if rec_type == "Hybrid" else models['cosine_sim']
+        
+        sim_scores = list(enumerate(sim_matrix[selected_idx]))
+        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+        sim_scores = sim_scores[1:n_recommend+1]
+        
+        st.divider()
+        st.subheader("Kết quả đề xuất:")
+        
+        for i, (idx, score) in enumerate(sim_scores, 1):
+            prop = df.iloc[idx]
+            st.write(f"**{i}. {prop['tieu_de'][:80]}...**")
+            st.write(f"💰 {prop['gia_ban']} | 📐 {prop['dien_tich']} | 📍 {prop['quan']}")
+            st.write(f"🎯 Độ tương đồng: {score:.3f}")
+            st.divider()
+
+elif menu == "👥 Info Team":
+    st.title("👥 Thông tin nhóm")
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
     
     st.markdown("""
     ### 🎓 Giảng viên hướng dẫn
     **TS. Nguyễn Văn A** - Trưởng bộ môn Khoa học Dữ liệu
     
+<<<<<<< HEAD
     ### 👨‍💻 Thành viên nhóm
     """)
     
@@ -712,3 +867,24 @@ elif menu == "👥 Đội ngũ phát triển":
     - **GitHub:** github.com/realestate-recommender-system
     """)
     
+=======
+    **Thành viên:**
+    | STT | Họ và tên | Công việc |
+    |-----|-----------|-----------|
+    | 1 | Đặng Đức Duy | Xử lý dữ liệu  |
+    | 2 | [Huỳnh Lê Xuân Ánh ] | Xây dựng models Hệ thống đề xuất |
+    | 3 | [Nguyễn Thị Tuyết Vân] | Xây dựng models hệ thống phân cụm BĐS |
+                
+    **Công nghệ:** 
+        Scikit-learn 
+            - KMeans 
+            - Gaussian Mixture Model (GMM) 
+            - Agglomerative Clustering 
+        PySpark 
+            - KMeans 
+            - Gaussian Mixture Model (GMM)
+            - BisectingKMeans
+    
+    """)
+    
+>>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
