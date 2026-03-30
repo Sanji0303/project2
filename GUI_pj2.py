@@ -1,13 +1,15 @@
-# app.py
+# GUI_pj2.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
 import os
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # ==================== CẤU HÌNH ====================
 st.set_page_config(
-    page_title="Hệ thống Đề xuất & Phân cụm Bất động sản", 
+    page_title="Hệ thống Đề xuất & Phân cụm Bất động sản",
     layout="wide"
 )
 
@@ -19,12 +21,17 @@ PATH_BT2 = os.path.join(BASE_DIR, "file_pkl_bt2")
 # ==================== LOAD MODELS ====================
 @st.cache_resource
 def load_models():
-    """Load models với 6 cụm"""
+    """Load models - sử dụng tính similarity on-the-fly để tránh file lớn"""
     models = {}
     
-    # Load BT1
+    # Load BT1 - chỉ load df_recommend
     models['df_recommend'] = joblib.load(os.path.join(PATH_BT1, "df_recommend.pkl"))
-    models['hybrid_sim'] = joblib.load(os.path.join(PATH_BT1, "hybrid_sim.pkl"))
+    
+    # Tạo TF-IDF features từ tiêu đề
+    with st.spinner("Đang xây dựng features từ dữ liệu..."):
+        tfidf = TfidfVectorizer(max_features=5000, stop_words='english')
+        models['features'] = tfidf.fit_transform(models['df_recommend']['tieu_de'].fillna(''))
+        models['tfidf_vectorizer'] = tfidf
     
     # Load BT2 - 3 file clustering
     models['scaler'] = joblib.load(os.path.join(PATH_BT2, "scaler_kmeans.pkl"))
@@ -45,7 +52,6 @@ def load_models():
         avg_price = cluster_data['gia_ban_num'].mean() / 1e9
         avg_area = cluster_data['dien_tich_num'].mean()
         
-        # Phân loại phân khúc dựa trên giá
         if avg_price < 3:
             segment = "🏠 Giá rẻ - Nhà nhỏ"
             desc = "Phù hợp đầu tư, sinh viên, người độc thân"
@@ -98,8 +104,28 @@ def load_models():
     
     return models
 
+# Hàm tính similarity on-the-fly
+def get_similar_properties(idx, features, df_filtered, top_k=10):
+    """Tính similarity trực tiếp từ feature vectors"""
+    query_vector = features[idx]
+    similarities = cosine_similarity(query_vector, features).flatten()
+    
+    # Lấy top_k indices (bỏ qua chính nó)
+    similar_indices = similarities.argsort()[::-1][1:top_k+1]
+    similar_scores = similarities[similar_indices]
+    
+    # Lọc chỉ giữ các BĐS trong df_filtered
+    results = []
+    for i, (sim_idx, score) in enumerate(zip(similar_indices, similar_scores)):
+        if sim_idx in df_filtered.index:
+            results.append((sim_idx, score))
+        if len(results) >= top_k:
+            break
+    
+    return results
+
 # Load models
-with st.spinner("Đang tải mô hình..."):
+with st.spinner("Đang tải mô hình và xây dựng features..."):
     models = load_models()
 
 # ==================== SIDEBAR MENU ====================
@@ -109,7 +135,6 @@ menu = st.sidebar.radio(
     ["📊 Bài toán kinh doanh", "📈 Đánh giá Mô hình", "🔮 Dự đoán phân cụm", "🏠 Đề xuất bất động sản", "👥 Đội ngũ phát triển"]
 )
 
-# Thêm thông tin nhóm ở sidebar footer
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 👥 Đội ngũ phát triển")
 st.sidebar.markdown("""
@@ -120,9 +145,7 @@ st.sidebar.markdown("""
 st.sidebar.markdown("---")
 st.sidebar.caption("© 2024 - Hệ thống Đề xuất & Phân cụm Bất động sản")
 
-# ==================== CÁC MENU ====================
-
-# 1. BÀI TOÁN KINH DOANH
+# ==================== BÀI TOÁN KINH DOANH ====================
 if menu == "📊 Bài toán kinh doanh":
     st.title("📊 Bài toán Kinh doanh")
     
@@ -152,11 +175,10 @@ if menu == "📊 Bài toán kinh doanh":
     with col3:
         st.metric("Diện tích TB", f"{df['dien_tich_num'].mean():.0f} m²")
     
-    # Footer thông tin nhóm
     st.markdown("---")
     st.caption("👥 **Đội ngũ phát triển:** Đặng Đức Duy | Huỳnh Lê Xuân Ánh | Nguyễn Thị Tuyết Vân")
 
-# 2. ĐÁNH GIÁ MÔ HÌNH
+# ==================== ĐÁNH GIÁ MÔ HÌNH ====================
 elif menu == "📈 Đánh giá Mô hình":
     st.title("📈 Đánh giá Mô hình")
     
@@ -164,7 +186,6 @@ elif menu == "📈 Đánh giá Mô hình":
     
     with tab1:
         st.subheader("Đánh giá phân cụm KMeans với 6 cụm")
-        
         st.metric("Silhouette Score", "0.4796")
         
         st.info("""
@@ -176,20 +197,15 @@ elif menu == "📈 Đánh giá Mô hình":
         **KMeans với 6 cụm đạt 0.4796 → Cấu trúc cụm ở mức trung bình khá!**
         """)
         
-        # Hiển thị phân bố số lượng
         st.subheader("📊 Phân bố số lượng theo 6 cụm")
         cluster_counts = {cluster: info['count'] for cluster, info in models['cluster_info'].items()}
-        
-        # Tạo bar chart
         chart_data = pd.DataFrame({
             'Cụm': [f"Cụm {c}" for c in sorted(cluster_counts.keys())],
             'Số lượng': [cluster_counts[c] for c in sorted(cluster_counts.keys())]
         })
         st.bar_chart(chart_data.set_index('Cụm'))
         
-        # Hiển thị chi tiết từng cụm
         st.subheader("📈 Chi tiết 6 phân khúc")
-        
         for cluster in sorted(cluster_counts.keys()):
             info = models['cluster_info'][cluster]
             with st.expander(f"{info['icon']} **Cụm {cluster}: {info['segment']}**"):
@@ -215,14 +231,13 @@ elif menu == "📈 Đánh giá Mô hình":
         **✅ Ưu điểm:**
         - Đề xuất đa chiều, không chỉ dựa trên nội dung
         - Phù hợp với thị trường bất động sản
-        - Đã tối ưu dung lượng (bỏ cosine_sim.pkl)
+        - Đã tối ưu dung lượng (tính similarity on-the-fly)
         """)
     
-    # Footer thông tin nhóm
     st.markdown("---")
     st.caption("👥 **Đội ngũ phát triển:** Đặng Đức Duy | Huỳnh Lê Xuân Ánh | Nguyễn Thị Tuyết Vân")
 
-# 3. DỰ ĐOÁN PHÂN CỤM
+# ==================== DỰ ĐOÁN PHÂN CỤM ====================
 elif menu == "🔮 Dự đoán phân cụm":
     st.title("🔮 Dự đoán phân cụm - Xác định phân khúc")
     
@@ -236,16 +251,11 @@ elif menu == "🔮 Dự đoán phân cụm":
         **🏘️ 6 Phân khúc Bất động sản:**
         """)
         
-        # Hiển thị 6 cụm trong hướng dẫn
         cluster_info = models['cluster_info']
-        
-        # Hiển thị dạng grid 2 cột
         col1, col2 = st.columns(2)
-        
         clusters_sorted = sorted(cluster_info.keys())
         mid = len(clusters_sorted) // 2
         
-        # Cột 1
         with col1:
             for cluster in clusters_sorted[:mid]:
                 info = cluster_info[cluster]
@@ -257,7 +267,6 @@ elif menu == "🔮 Dự đoán phân cụm":
                 ---
                 """)
         
-        # Cột 2
         with col2:
             for cluster in clusters_sorted[mid:]:
                 info = cluster_info[cluster]
@@ -280,28 +289,20 @@ elif menu == "🔮 Dự đoán phân cụm":
         st.info(f"💡 Giá tham khảo {quan}: 5 - 25 tỷ")
     
     if st.button("🔮 Dự đoán cụm", type="primary"):
-        # Tính toán features
         gia_num = gia * 1e9
         price_per_m2 = gia_num / dien_tich
-        
         quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
         quan_encoded = quan_map[quan]
         
-        # Tạo feature vector
         features = models['features_kmeans']
         new_data = np.array([[gia_num, dien_tich, price_per_m2, quan_encoded]])
-        
-        # Scale và dự đoán
         new_scaled = models['scaler'].transform(new_data)
         cluster_pred = models['kmeans'].predict(new_scaled)[0]
-        
-        # Lấy thông tin cụm
         cluster_info = models['cluster_info'][cluster_pred]
         
         st.divider()
         st.subheader("📊 Kết quả dự đoán")
         
-        # Hiển thị kết quả nổi bật
         st.success(f"### {cluster_info['icon']} BĐS thuộc **Cụm {cluster_pred}**")
         st.info(f"### {cluster_info['segment']}")
         
@@ -315,7 +316,6 @@ elif menu == "🔮 Dự đoán phân cụm":
         
         st.write(f"**📈 Phân tích:** {cluster_info['description']}")
         
-        # So sánh với BĐS nhập
         st.divider()
         st.subheader("📊 So sánh với đặc điểm cụm")
         
@@ -338,12 +338,10 @@ elif menu == "🔮 Dự đoán phân cụm":
             else:
                 st.info("📐 Diện tích bằng TB cụm")
         
-        # Gợi ý
         st.divider()
         st.subheader("💡 Gợi ý")
         st.info(f"BĐS này phù hợp với khách hàng trong phân khúc {cluster_info['segment']}. Hãy tham khảo các BĐS tương tự trong mục 'Đề xuất bất động sản'.")
     
-    # Footer thông tin nhóm
     st.markdown("---")
     st.caption("👥 **Đội ngũ phát triển:** Đặng Đức Duy | Huỳnh Lê Xuân Ánh | Nguyễn Thị Tuyết Vân")
 
@@ -352,8 +350,8 @@ elif menu == "🏠 Đề xuất bất động sản":
     st.title("🏠 Tìm kiếm & Đề xuất bất động sản")
     
     df = models['df_recommend']
+    features_matrix = models['features']
     
-    # Khởi tạo session state để lưu kết quả tìm kiếm
     if 'search_results' not in st.session_state:
         st.session_state.search_results = None
     if 'selected_property' not in st.session_state:
@@ -363,7 +361,7 @@ elif menu == "🏠 Đề xuất bất động sản":
     if 'keywords_input' not in st.session_state:
         st.session_state.keywords_input = ""
     
-    # ==================== FORM TÌM KIẾM ====================
+    # Form tìm kiếm
     with st.form("search_form"):
         st.subheader("🔍 Nhập thông tin nhu cầu của bạn")
         
@@ -376,13 +374,8 @@ elif menu == "🏠 Đề xuất bất động sản":
             price_range = st.selectbox(
                 "💰 Khoảng giá",
                 options=[
-                    "Tất cả",
-                    "Dưới 3 tỷ",
-                    "3 - 6 tỷ",
-                    "6 - 10 tỷ",
-                    "10 - 15 tỷ",
-                    "15 - 25 tỷ",
-                    "Trên 25 tỷ"
+                    "Tất cả", "Dưới 3 tỷ", "3 - 6 tỷ", "6 - 10 tỷ",
+                    "10 - 15 tỷ", "15 - 25 tỷ", "Trên 25 tỷ"
                 ],
                 index=0
             )
@@ -390,13 +383,8 @@ elif menu == "🏠 Đề xuất bất động sản":
             area_range = st.selectbox(
                 "📐 Diện tích",
                 options=[
-                    "Tất cả",
-                    "Dưới 40 m²",
-                    "40 - 60 m²",
-                    "60 - 90 m²",
-                    "90 - 120 m²",
-                    "120 - 200 m²",
-                    "Trên 200 m²"
+                    "Tất cả", "Dưới 40 m²", "40 - 60 m²", "60 - 90 m²",
+                    "90 - 120 m²", "120 - 200 m²", "Trên 200 m²"
                 ],
                 index=0
             )
@@ -405,26 +393,23 @@ elif menu == "🏠 Đề xuất bất động sản":
             property_type = st.multiselect(
                 "🏢 Loại hình",
                 options=[
-                    "Nhà phố", "Biệt thự", "Căn hộ", "Nhà mặt tiền", 
+                    "Nhà phố", "Biệt thự", "Căn hộ", "Nhà mặt tiền",
                     "Nhà hẻm", "Nhà ngõ", "Nhà riêng", "Penthouse"
-                ],
-                help="Chọn loại hình bạn quan tâm (có thể chọn nhiều)"
+                ]
             )
             
             features = st.multiselect(
                 "✨ Tiện ích & Đặc điểm",
                 options=[
                     "Hẻm ô tô", "Mặt tiền", "Nội thất đầy đủ", "Chưa có nội thất",
-                    "Thiết kế hiện đại", "Nhà mới xây", "Gần trường học", 
+                    "Thiết kế hiện đại", "Nhà mới xây", "Gần trường học",
                     "Gần chợ", "Gần bệnh viện", "Khu dân cư an ninh"
-                ],
-                help="Chọn các đặc điểm bạn mong muốn"
+                ]
             )
             
             keywords = st.text_input(
                 "🔎 Từ khóa tìm kiếm",
                 placeholder="Ví dụ: nhà đẹp hẻm ô tô gần chợ",
-                help="💡 Nhập nhiều từ khóa cách nhau bằng dấu cách. Hệ thống sẽ tìm BĐS chứa ít nhất một trong các từ đó.",
                 value=st.session_state.keywords_input
             )
             
@@ -432,52 +417,49 @@ elif menu == "🏠 Đề xuất bất động sản":
                 keyword_count = len([k.strip() for k in keywords.split() if k.strip()])
                 st.caption(f"📝 Đã nhập {keyword_count} từ khóa")
         
-        # Nút submit
         submitted = st.form_submit_button("🔍 Tìm kiếm & Đề xuất", type="primary", use_container_width=True)
     
-    # ==================== XỬ LÝ TÌM KIẾM ====================
     if submitted:
         with st.spinner("Đang tìm kiếm bất động sản phù hợp..."):
             filtered_df = df.copy()
-            
-            # Lưu từ khóa vào session state
             st.session_state.keywords_input = keywords
             
-            # Lọc theo quận
             if selected_quan != "Tất cả":
                 filtered_df = filtered_df[filtered_df['quan'] == selected_quan]
             
-            # Lọc theo giá
+            # Lọc giá
             if price_range != "Tất cả":
-                if price_range == "Dưới 3 tỷ":
-                    filtered_df = filtered_df[filtered_df['gia_ban_num'] < 3e9]
-                elif price_range == "3 - 6 tỷ":
-                    filtered_df = filtered_df[(filtered_df['gia_ban_num'] >= 3e9) & (filtered_df['gia_ban_num'] < 6e9)]
-                elif price_range == "6 - 10 tỷ":
-                    filtered_df = filtered_df[(filtered_df['gia_ban_num'] >= 6e9) & (filtered_df['gia_ban_num'] < 10e9)]
-                elif price_range == "10 - 15 tỷ":
-                    filtered_df = filtered_df[(filtered_df['gia_ban_num'] >= 10e9) & (filtered_df['gia_ban_num'] < 15e9)]
-                elif price_range == "15 - 25 tỷ":
-                    filtered_df = filtered_df[(filtered_df['gia_ban_num'] >= 15e9) & (filtered_df['gia_ban_num'] < 25e9)]
-                elif price_range == "Trên 25 tỷ":
-                    filtered_df = filtered_df[filtered_df['gia_ban_num'] >= 25e9]
+                price_map = {
+                    "Dưới 3 tỷ": (None, 3e9),
+                    "3 - 6 tỷ": (3e9, 6e9),
+                    "6 - 10 tỷ": (6e9, 10e9),
+                    "10 - 15 tỷ": (10e9, 15e9),
+                    "15 - 25 tỷ": (15e9, 25e9),
+                    "Trên 25 tỷ": (25e9, None)
+                }
+                min_price, max_price = price_map[price_range]
+                if min_price:
+                    filtered_df = filtered_df[filtered_df['gia_ban_num'] >= min_price]
+                if max_price:
+                    filtered_df = filtered_df[filtered_df['gia_ban_num'] <= max_price]
             
-            # Lọc theo diện tích
+            # Lọc diện tích
             if area_range != "Tất cả":
-                if area_range == "Dưới 40 m²":
-                    filtered_df = filtered_df[filtered_df['dien_tich_num'] < 40]
-                elif area_range == "40 - 60 m²":
-                    filtered_df = filtered_df[(filtered_df['dien_tich_num'] >= 40) & (filtered_df['dien_tich_num'] < 60)]
-                elif area_range == "60 - 90 m²":
-                    filtered_df = filtered_df[(filtered_df['dien_tich_num'] >= 60) & (filtered_df['dien_tich_num'] < 90)]
-                elif area_range == "90 - 120 m²":
-                    filtered_df = filtered_df[(filtered_df['dien_tich_num'] >= 90) & (filtered_df['dien_tich_num'] < 120)]
-                elif area_range == "120 - 200 m²":
-                    filtered_df = filtered_df[(filtered_df['dien_tich_num'] >= 120) & (filtered_df['dien_tich_num'] < 200)]
-                elif area_range == "Trên 200 m²":
-                    filtered_df = filtered_df[filtered_df['dien_tich_num'] >= 200]
+                area_map = {
+                    "Dưới 40 m²": (None, 40),
+                    "40 - 60 m²": (40, 60),
+                    "60 - 90 m²": (60, 90),
+                    "90 - 120 m²": (90, 120),
+                    "120 - 200 m²": (120, 200),
+                    "Trên 200 m²": (200, None)
+                }
+                min_area, max_area = area_map[area_range]
+                if min_area:
+                    filtered_df = filtered_df[filtered_df['dien_tich_num'] >= min_area]
+                if max_area:
+                    filtered_df = filtered_df[filtered_df['dien_tich_num'] <= max_area]
             
-            # Lọc theo loại hình
+            # Lọc loại hình
             if property_type:
                 type_pattern = '|'.join(property_type)
                 mask = filtered_df['tieu_de'].str.contains(type_pattern, case=False, na=False)
@@ -485,7 +467,7 @@ elif menu == "🏠 Đề xuất bất động sản":
                     mask = mask | filtered_df['mo_ta'].str.contains(type_pattern, case=False, na=False)
                 filtered_df = filtered_df[mask]
             
-            # Lọc theo từ khóa (OR logic)
+            # Lọc từ khóa
             if keywords:
                 keyword_list = [k.strip() for k in keywords.split() if k.strip()]
                 if keyword_list:
@@ -498,32 +480,27 @@ elif menu == "🏠 Đề xuất bất động sản":
                         combined_mask = combined_mask | title_mask | desc_mask
                     filtered_df = filtered_df[combined_mask]
             
-            # Lọc theo tiện ích
+            # Lọc tiện ích
             if features:
                 feature_pattern = '|'.join(features)
                 if 'mo_ta' in filtered_df.columns:
                     filtered_df = filtered_df[filtered_df['mo_ta'].str.contains(feature_pattern, case=False, na=False)]
             
-            # Lưu kết quả vào session state
             st.session_state.search_results = filtered_df
             st.session_state.selected_quan = selected_quan
-            
-            # Reset selected property khi tìm kiếm mới
             st.session_state.selected_property = None
     
-    # ==================== HIỂN THỊ KẾT QUẢ TÌM KIẾM ====================
+    # Hiển thị kết quả
     if st.session_state.search_results is not None and len(st.session_state.search_results) > 0:
         filtered_df = st.session_state.search_results
         
         st.success(f"✅ Tìm thấy {len(filtered_df)} bất động sản phù hợp!")
         
-        # Hiển thị thông tin tìm kiếm
         if st.session_state.keywords_input:
             keyword_list = [k.strip() for k in st.session_state.keywords_input.split() if k.strip()]
             if keyword_list:
                 st.info(f"🔍 Đã tìm BĐS chứa từ khóa: **{', '.join(keyword_list)}**")
         
-        # Hiển thị phân bố theo cụm
         if 'cluster_kmeans' in filtered_df.columns:
             st.subheader("📊 Phân bố theo phân khúc")
             cluster_dist = filtered_df['cluster_kmeans'].value_counts().sort_index()
@@ -532,24 +509,16 @@ elif menu == "🏠 Đề xuất bất động sản":
                 if i < 6:
                     info = models['cluster_info'].get(cluster, {})
                     with cols[i]:
-                        st.metric(
-                            f"Cụm {cluster}", 
-                            f"{count} BĐS",
-                            help=info.get('segment', f'Cụm {cluster}')
-                        )
+                        st.metric(f"Cụm {cluster}", f"{count} BĐS", help=info.get('segment', f'Cụm {cluster}'))
         
         st.divider()
-        
-        # ==================== CHỌN BĐS ĐỂ ĐỀ XUẤT ====================
         st.subheader("🏠 Chọn bất động sản để xem đề xuất tương tự")
         
-        # Tạo danh sách hiển thị
         filtered_df['display'] = filtered_df.apply(
-            lambda x: f"🏠 {str(x['tieu_de'])[:80]}... | {x['gia_ban']} | {x['dien_tich']} | {x['quan']}", 
+            lambda x: f"🏠 {str(x['tieu_de'])[:80]}... | {x['gia_ban']} | {x['dien_tich']} | {x['quan']}",
             axis=1
         )
         
-        # Tìm index hiện tại trong session state
         current_index = 0
         if st.session_state.selected_property is not None:
             try:
@@ -557,7 +526,6 @@ elif menu == "🏠 Đề xuất bất động sản":
             except:
                 current_index = 0
         
-        # Selectbox để chọn BĐS
         selected_idx = st.selectbox(
             "Danh sách bất động sản phù hợp:",
             options=range(len(filtered_df)),
@@ -566,11 +534,9 @@ elif menu == "🏠 Đề xuất bất động sản":
             key="property_selector"
         )
         
-        # Lưu selected property vào session state
         selected_prop = filtered_df.iloc[selected_idx]
         st.session_state.selected_property = selected_prop.name
         
-        # Hiển thị chi tiết BĐS được chọn
         with st.expander("📋 Xem chi tiết bất động sản đã chọn", expanded=True):
             col1, col2 = st.columns(2)
             with col1:
@@ -586,39 +552,23 @@ elif menu == "🏠 Đề xuất bất động sản":
                 if 'price_per_m2' in selected_prop.index:
                     st.write(f"**💵 Giá/m²:** {selected_prop['price_per_m2']/1e6:.1f} triệu/m²")
         
-        # ==================== PHẦN ĐỀ XUẤT ====================
         st.subheader("🎯 Đề xuất bất động sản tương tự")
-        
         n_recommend = st.slider("Số lượng đề xuất:", 3, 10, 5, key="recommend_slider")
         
         if st.button("🔍 Đề xuất ngay", type="primary", key="recommend_button"):
             with st.spinner("Đang tìm kiếm bất động sản tương tự..."):
-                original_idx = selected_prop.name
+                original_idx = filtered_df.index.get_loc(selected_prop.name)
                 
-                # Lấy similarity matrix
-                sim_matrix = models['hybrid_sim']
-                sim_scores = list(enumerate(sim_matrix[original_idx]))
+                similar_results = get_similar_properties(original_idx, features_matrix, filtered_df, n_recommend)
                 
-                # Lọc cùng quận (nếu có chọn quận)
-                selected_quan_state = st.session_state.get('selected_quan', "Tất cả")
-                if selected_quan_state != "Tất cả":
-                    same_quan_indices = filtered_df[filtered_df['quan'] == selected_quan_state].index.tolist()
-                else:
-                    same_quan_indices = filtered_df.index.tolist()
-                
-                sim_scores = [(idx, score) for idx, score in sim_scores 
-                             if idx in same_quan_indices and idx != original_idx]
-                sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[:n_recommend]
-                
-                if len(sim_scores) == 0:
+                if len(similar_results) == 0:
                     st.warning("Không tìm thấy bất động sản tương tự!")
                 else:
-                    st.success(f"✨ Tìm thấy {len(sim_scores)} bất động sản tương tự:")
+                    st.success(f"✨ Tìm thấy {len(similar_results)} bất động sản tương tự:")
                     
-                    for i, (idx, score) in enumerate(sim_scores, 1):
+                    for i, (idx, score) in enumerate(similar_results, 1):
                         prop = df.iloc[idx]
                         
-                        # Thẻ phân khúc
                         if 'cluster_kmeans' in prop.index:
                             cluster = prop['cluster_kmeans']
                             cluster_info_model = models['cluster_info'].get(cluster, {})
@@ -626,7 +576,6 @@ elif menu == "🏠 Đề xuất bất động sản":
                         else:
                             cluster_badge = "`Chưa phân cụm`"
                         
-                        # Tạo expander cho từng đề xuất
                         with st.expander(f"**{i}. {prop['tieu_de'][:80]}...**", expanded=(i==1)):
                             col1, col2 = st.columns(2)
                             with col1:
@@ -637,7 +586,6 @@ elif menu == "🏠 Đề xuất bất động sản":
                                 st.write(f"**🏷️ Phân khúc:** {cluster_badge}")
                                 st.write(f"**🎯 Độ tương đồng:** `{score:.3f}`")
                             
-                            # Hiển thị mô tả nếu có
                             if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                 st.write(f"**📝 Mô tả:** {prop['mo_ta'][:150]}...")
     
@@ -645,7 +593,75 @@ elif menu == "🏠 Đề xuất bất động sản":
         st.warning("⚠️ Không tìm thấy bất động sản phù hợp với nhu cầu của bạn.")
         
         with st.expander("💡 Gợi ý cải thiện tìm kiếm"):
-            st.write("""
+            st.markdown("""
             **Có thể bạn nên:**
             - **Mở rộng khoảng giá** - Thử tăng/giảm khoảng giá tìm kiếm
-            - **Mở rộng di
+            - **Mở rộng diện tích** - Điều chỉnh diện tích phù hợp hơn
+            - **Giảm bớt tiêu chí** - Bỏ bớt một số loại hình hoặc tiện ích
+            - **Đơn giản hóa từ khóa** - Thử dùng từ khóa ngắn gọn hơn
+            - **Chọn tất cả quận** - Mở rộng khu vực tìm kiếm
+            """)
+    
+    st.markdown("---")
+    st.caption("👥 **Đội ngũ phát triển:** Đặng Đức Duy | Huỳnh Lê Xuân Ánh | Nguyễn Thị Tuyết Vân")
+
+# ==================== ĐỘI NGŨ PHÁT TRIỂN ====================
+elif menu == "👥 Đội ngũ phát triển":
+    st.title("👥 Đội ngũ phát triển")
+    
+    st.markdown("""
+    ### 🎓 Giảng viên hướng dẫn
+    **TS. Nguyễn Văn A** - Trưởng bộ môn Khoa học Dữ liệu
+    
+    ### 👨‍💻 Thành viên nhóm
+    """)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        #### 👤 Đặng Đức Duy
+        - **Vai trò:** Xử lý dữ liệu
+        - **Công việc:**
+          - Thu thập và làm sạch dữ liệu
+          - Xây dựng pipeline xử lý
+          - Tối ưu hiệu suất
+        """)
+    
+    with col2:
+        st.markdown("""
+        #### 👩‍💻 Huỳnh Lê Xuân Ánh
+        - **Vai trò:** Hệ thống đề xuất
+        - **Công việc:**
+          - Xây dựng mô hình TF-IDF
+          - Phát triển Hybrid Recommender
+          - Đánh giá hiệu quả đề xuất
+        """)
+    
+    with col3:
+        st.markdown("""
+        #### 👩‍💻 Nguyễn Thị Tuyết Vân
+        - **Vai trò:** Phân cụm BĐS
+        - **Công việc:**
+          - Xây dựng mô hình KMeans, GMM
+          - Phân tích đặc điểm từng cụm
+          - Trực quan hóa kết quả
+        """)
+    
+    st.divider()
+    
+    st.markdown("""
+    ### 📊 Thông tin dự án
+    | Mục | Chi tiết |
+    |-----|----------|
+    | **Tên dự án** | Hệ thống Đề xuất & Phân cụm Bất động sản |
+    | **Công nghệ** | Python, Scikit-learn, Streamlit |
+    | **Số lượng BĐS** | 7,881 bất động sản |
+    | **Số cụm** | 6 phân khúc |
+    | **Silhouette Score** | 0.4796 |
+    | **Thời gian thực hiện** | Tháng 10/2024 - 12/2024 |
+    
+    ### 📞 Liên hệ
+    - **Email:** project.realestate@gmail.com
+    - **GitHub:** github.com/realestate-recommender-system
+    """)
