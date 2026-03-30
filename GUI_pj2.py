@@ -149,8 +149,7 @@ st.sidebar.info("""
 - **Huỳnh Lê Xuân Ánh** (Hệ thống gợi ý)
 - **Nguyễn Thị Tuyết Vân** (Phân tích thị trường)
 
-🎓 **GVHD:** TS. Nguyễn Văn A
-📧 **Liên hệ:** contact@realestate.vn
+📧 **Liên hệ:** projectnhom7@gmail.com
 """)
 st.sidebar.caption("© 2024 - Real Estate Recommender System")
 
