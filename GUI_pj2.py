@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-# app_final.py
-=======
-# app.py - Phiên bản chỉ dùng Hybrid, bỏ cosine_sim hoàn toàn
->>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -138,7 +133,6 @@ if menu == "📊 Bài toán kinh doanh":
 # ==================== BUSINESS PROBLEM ====================
 if menu == "🏢 Bài toán kinh doanh":
     st.title("🏢 Bài toán Kinh doanh")
->>>>>>> fcff86eb06bf6aa781845b2572477610d13a6c05
     
     st.markdown(f"""
     ### 📌 Vấn đề
