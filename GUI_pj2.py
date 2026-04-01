@@ -724,7 +724,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                     st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
         
-                # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
+        # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
         with sub_tab2:
             st.markdown("##### 📝 Nhập thông tin căn nhà bạn mong muốn")
             
