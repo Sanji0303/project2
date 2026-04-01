@@ -150,6 +150,7 @@ def load_models():
     models['cluster_info'] = cluster_info
     
     return models
+    
 # Hàm tính độ phù hợp
 def get_similar_properties(idx, features, df_filtered, top_k=10):
     query_vector = features[idx]
