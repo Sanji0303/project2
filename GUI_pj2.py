@@ -48,37 +48,6 @@ def load_models():
     
     # Tạo thông tin phân khúc (ngôn ngữ thương mại)
     cluster_info = {}
-segment_counter = {}  # Đếm số lượng cụm trong mỗi phân khúc
-
-# ==================== LOAD MODELS ====================
-@st.cache_resource
-def load_models():
-    """Load models và xử lý dữ liệu ngầm (không hiển thị thuật ngữ kỹ thuật ra UI)"""
-    models = {}
-    
-    # Load dữ liệu
-    models['df_recommend'] = joblib.load(os.path.join(PATH_BT1, "df_recommend.pkl"))
-    
-    # Tạo features (ẩn quá trình này với người dùng)
-    with st.spinner("Đang khởi tạo hệ thống dữ liệu..."):
-        tfidf = TfidfVectorizer(max_features=5000, stop_words='english')
-        models['features'] = tfidf.fit_transform(models['df_recommend']['tieu_de'].fillna(''))
-        models['tfidf_vectorizer'] = tfidf
-    
-    # Load mô hình phân khúc
-    models['scaler'] = joblib.load(os.path.join(PATH_BT2, "scaler_kmeans.pkl"))
-    models['kmeans'] = joblib.load(os.path.join(PATH_BT2, "kmeans_model.pkl"))
-    models['features_kmeans'] = joblib.load(os.path.join(PATH_BT2, "features_kmeans.pkl"))
-    
-    # Tạo df_clustered
-    df_clustered = models['df_recommend'].copy()
-    X_cluster = df_clustered[models['features_kmeans']]
-    X_scaled = models['scaler'].transform(X_cluster)
-    df_clustered['cluster_kmeans'] = models['kmeans'].predict(X_scaled)
-    models['df_clustered'] = df_clustered
-    
-    # Tạo thông tin phân khúc (ngôn ngữ thương mại)
-    cluster_info = {}
     segment_counter = {}
     
     for cluster in sorted(df_clustered['cluster_kmeans'].unique()):
@@ -100,11 +69,19 @@ def load_models():
             price_range = "3 - 6 tỷ"
             area_range = "40 - 60m²"
         elif avg_price < 10:
-            base_segment = "Khá giả - Không gian rộng"
-            desc = "Không gian sống thoải mái cho gia đình 2-3 thế hệ"
-            icon = "🏢"
-            price_range = "6 - 10 tỷ"
-            area_range = "60 - 90m²"
+            # Phân biệt 2 cụm Khá giả dựa trên diện tích
+            if avg_area < 75:
+                base_segment = "Khá giả - Nhà phố trung tâm"
+                desc = "Không gian sống thoải mái tại khu vực trung tâm, thuận tiện di chuyển"
+                icon = "🏢"
+                price_range = "6 - 10 tỷ"
+                area_range = "60 - 80m²"
+            else:
+                base_segment = "Khá giả - Nhà vườn rộng rãi"
+                desc = "Không gian sống rộng rãi, thoáng mát, phù hợp gia đình đa thế hệ"
+                icon = "🏡"
+                price_range = "6 - 10 tỷ"
+                area_range = "80 - 100m²"
         elif avg_price < 15:
             base_segment = "Cao cấp - Tiện nghi"
             desc = "Môi trường sống chất lượng cao, an ninh đảm bảo"
@@ -124,14 +101,14 @@ def load_models():
             price_range = "Trên 25 tỷ"
             area_range = "Trên 200m²"
         
-        # Đếm số lần xuất hiện của base_segment
+        # Đếm số lần xuất hiện của base_segment (vẫn giữ để xử lý các trường hợp khác)
         if base_segment not in segment_counter:
             segment_counter[base_segment] = 1
         else:
             segment_counter[base_segment] += 1
         
-        # Tạo tên phân biệt nếu có nhiều cụm cùng loại
-        if segment_counter[base_segment] > 1:
+        # Tạo tên phân biệt (đã phân biệt ở trên nên không cần thêm số)
+        if segment_counter[base_segment] > 1 and "Khá giả" not in base_segment:
             segment = f"{base_segment} (Nhóm {segment_counter[base_segment]})"
         else:
             segment = base_segment
