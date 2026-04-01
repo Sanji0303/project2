@@ -905,7 +905,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                             result_row = {
                                 "STT": idx + 1,
                                 "Tiêu đề BĐS cần tìm": row['tieu_de'][:80],
-                                "Quận": row['quan'],
+                                
                             }
                             
                             for i, (pos, score) in enumerate(zip(top_indices, top_scores), 1):
