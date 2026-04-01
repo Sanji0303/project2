@@ -260,59 +260,278 @@ elif menu == "📊 Tổng quan thị trường":
 elif menu == "🎯 Khám phá phân khúc":
     st.title("🎯 Định vị Phân khúc Bất động sản")
     
-    st.markdown("""
-    Bạn đang quan tâm đến một căn nhà nhưng không biết nó thuộc phân khúc nào trên thị trường? 
-    Hãy nhập thông tin bên dưới, hệ thống AI của chúng tôi sẽ phân tích và cho bạn câu trả lời.
-    """)
+    # Tạo 2 tab
+    tab1, tab2 = st.tabs(["📝 Nhập thủ công", "📂 Upload file CSV (Phân tích hàng loạt)"])
     
-    st.markdown("---")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        gia = st.number_input("💰 Mức giá dự kiến (tỷ VNĐ)", min_value=0.5, max_value=200.0, value=5.0, step=0.5)
-        dien_tich = st.number_input("📐 Diện tích (m²)", min_value=10.0, max_value=1000.0, value=50.0, step=5.0)
-    
-    with col2:
-        quan = st.selectbox("📍 Khu vực (Quận)", ["Bình Thạnh", "Gò Vấp", "Phú Nhuận"])
-        st.info(f"💡 Mẹo: Hệ thống sẽ so sánh căn nhà của bạn với hàng ngàn căn khác tại {quan} để đưa ra kết quả chính xác nhất.")
-    
-    if st.button("🔍 Phân tích ngay", type="primary"):
-        gia_num = gia * 1e9
-        price_per_m2 = gia_num / dien_tich
-        quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
-        quan_encoded = quan_map[quan]
+    # ==================== TAB 1: NHẬP THỦ CÔNG ====================
+    with tab1:
+        st.markdown("""
+        Bạn đang quan tâm đến một căn nhà nhưng không biết nó thuộc phân khúc nào trên thị trường? 
+        Hãy nhập thông tin bên dưới, hệ thống AI của chúng tôi sẽ phân tích và cho bạn câu trả lời.
+        """)
         
-        # Xử lý ngầm
-        new_data = np.array([[gia_num, dien_tich, price_per_m2, quan_encoded]])
-        new_scaled = models['scaler'].transform(new_data)
-        cluster_pred = models['kmeans'].predict(new_scaled)[0]
-        cluster_info = models['cluster_info'][cluster_pred]
-        
-        st.divider()
-        st.subheader("📊 Kết quả Phân tích")
-        
-        st.success(f"### {cluster_info['icon']} Bất động sản này thuộc phân khúc: **{cluster_info['segment']}**")
-        st.write(f"**💡 Đánh giá:** {cluster_info['description']}")
-        
-        st.markdown("#### So sánh với mặt bằng chung của phân khúc này:")
+        st.markdown("---")
         col1, col2 = st.columns(2)
+        
         with col1:
-            price_diff = gia - cluster_info['avg_price']
-            if price_diff > 0:
-                st.warning(f"💰 Giá cao hơn mức trung bình khoảng **{abs(price_diff):.1f} tỷ**")
-            elif price_diff < 0:
-                st.success(f"💰 Giá tốt hơn mức trung bình khoảng **{abs(price_diff):.1f} tỷ**")
-            else:
-                st.info("💰 Mức giá sát với trung bình thị trường")
+            gia = st.number_input("💰 Mức giá dự kiến (tỷ VNĐ)", min_value=0.5, max_value=200.0, value=5.0, step=0.5)
+            dien_tich = st.number_input("📐 Diện tích (m²)", min_value=10.0, max_value=1000.0, value=50.0, step=5.0)
         
         with col2:
-            area_diff = dien_tich - cluster_info['avg_area']
-            if area_diff > 0:
-                st.success(f"📐 Rộng hơn mức trung bình khoảng **{abs(area_diff):.0f} m²**")
-            elif area_diff < 0:
-                st.warning(f"📐 Nhỏ hơn mức trung bình khoảng **{abs(area_diff):.0f} m²**")
-            else:
-                st.info("📐 Diện tích đạt chuẩn trung bình")
+            quan = st.selectbox("📍 Khu vực (Quận)", ["Bình Thạnh", "Gò Vấp", "Phú Nhuận"])
+            st.info(f"💡 Mẹo: Hệ thống sẽ so sánh căn nhà của bạn với hàng ngàn căn khác tại {quan} để đưa ra kết quả chính xác nhất.")
+        
+        if st.button("🔍 Phân tích ngay", type="primary"):
+            gia_num = gia * 1e9
+            price_per_m2 = gia_num / dien_tich
+            quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
+            quan_encoded = quan_map[quan]
+            
+            new_data = np.array([[gia_num, dien_tich, price_per_m2, quan_encoded]])
+            new_scaled = models['scaler'].transform(new_data)
+            cluster_pred = models['kmeans'].predict(new_scaled)[0]
+            cluster_info = models['cluster_info'][cluster_pred]
+            
+            st.divider()
+            st.subheader("📊 Kết quả Phân tích")
+            
+            st.success(f"### {cluster_info['icon']} Bất động sản này thuộc phân khúc: **{cluster_info['segment']}**")
+            st.write(f"**💡 Đánh giá:** {cluster_info['description']}")
+            
+            st.markdown("#### So sánh với mặt bằng chung của phân khúc này:")
+            col1, col2 = st.columns(2)
+            with col1:
+                price_diff = gia - cluster_info['avg_price']
+                if price_diff > 0:
+                    st.warning(f"💰 Giá cao hơn mức trung bình khoảng **{abs(price_diff):.1f} tỷ**")
+                elif price_diff < 0:
+                    st.success(f"💰 Giá tốt hơn mức trung bình khoảng **{abs(price_diff):.1f} tỷ**")
+                else:
+                    st.info("💰 Mức giá sát với trung bình thị trường")
+            
+            with col2:
+                area_diff = dien_tich - cluster_info['avg_area']
+                if area_diff > 0:
+                    st.success(f"📐 Rộng hơn mức trung bình khoảng **{abs(area_diff):.0f} m²**")
+                elif area_diff < 0:
+                    st.warning(f"📐 Nhỏ hơn mức trung bình khoảng **{abs(area_diff):.0f} m²**")
+                else:
+                    st.info("📐 Diện tích đạt chuẩn trung bình")
+    
+    # ==================== TAB 2: UPLOAD CSV (PHÂN TÍCH HÀNG LOẠT) ====================
+    with tab2:
+        st.markdown("""
+        ### 📂 Phân tích phân khúc hàng loạt bằng file CSV
+        
+        **Hướng dẫn:**
+        1. Tải file mẫu để tham khảo cấu trúc dữ liệu chuẩn
+        2. Upload file CSV của bạn (hệ thống tự động nhận diện)
+        3. Hệ thống sẽ phân tích và hiển thị biểu đồ thống kê theo phân khúc
+        
+        **Các cột hỗ trợ:** giá bán, diện tích, số phòng ngủ, số tầng, quận
+        """)
+        
+        # Nút tải file mẫu
+        if st.button("📥 Tải file mẫu CSV", key="download_template_cluster"):
+            sample_data = pd.DataFrame({
+                "giá bán (tỷ)": [2.5, 5.8, 8.5, 12.5, 18.0, 35.0, 4.2, 7.5, 9.5, 15.0],
+                "diện tích (m²)": [35, 55, 72, 85, 110, 250, 45, 68, 82, 125],
+                "số phòng ngủ": [2, 3, 3, 4, 4, 5, 2, 3, 4, 4],
+                "số tầng": [1, 2, 2, 3, 3, 4, 1, 2, 3, 3],
+                "quận": ["Bình Thạnh", "Gò Vấp", "Bình Thạnh", "Phú Nhuận", "Bình Thạnh", "Gò Vấp", "Phú Nhuận", "Bình Thạnh", "Gò Vấp", "Phú Nhuận"]
+            })
+            csv = sample_data.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 Tải file mẫu (CSV)",
+                data=csv,
+                file_name="mau_phan_tich_phan_khuc.csv",
+                mime="text/csv",
+                key="download_cluster_btn"
+            )
+        
+        st.divider()
+        
+        # Upload file
+        uploaded_file = st.file_uploader(
+            "📁 Chọn file CSV của bạn",
+            type=["csv"],
+            help="Hệ thống tự động nhận diện cột dữ liệu (tiếng Việt hoặc tiếng Anh).",
+            key="csv_uploader_cluster"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                # Đọc file gốc
+                df_raw = pd.read_csv(uploaded_file)
+                st.info(f"📄 File đã tải: {len(df_raw)} dòng, {len(df_raw.columns)} cột")
+                
+                with st.expander("📋 Xem trước dữ liệu gốc", expanded=False):
+                    st.dataframe(df_raw.head(10), use_container_width=True)
+                
+                # ========== HÀM TIỀN XỬ LÝ ==========
+                def clean_and_predict_cluster(df):
+                    """Làm sạch dữ liệu và dự đoán phân khúc"""
+                    
+                    # Chuẩn hóa tên cột
+                    rename_map = {
+                        'giá bán': 'gia_ban', 'giá': 'gia_ban', 'price': 'gia_ban',
+                        'diện tích': 'dien_tich', 'area': 'dien_tich',
+                        'số phòng ngủ': 'so_phong_ngu', 'phòng ngủ': 'so_phong_ngu', 'bedroom': 'so_phong_ngu',
+                        'số tầng': 'tong_so_tang', 'tầng': 'tong_so_tang', 'floor': 'tong_so_tang',
+                        'quận': 'quan', 'district': 'quan'
+                    }
+                    df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
+                    
+                    # Xử lý giá
+                    if 'gia_ban' in df.columns:
+                        df['gia_ban'] = pd.to_numeric(df['gia_ban'], errors='coerce')
+                        df['gia_ban'] = df['gia_ban'].fillna(0)
+                    else:
+                        st.error("❌ Không tìm thấy cột giá bán")
+                        return None
+                    
+                    # Xử lý diện tích
+                    if 'dien_tich' in df.columns:
+                        df['dien_tich'] = pd.to_numeric(df['dien_tich'], errors='coerce')
+                        df['dien_tich'] = df['dien_tich'].fillna(0)
+                    else:
+                        st.error("❌ Không tìm thấy cột diện tích")
+                        return None
+                    
+                    # Xử lý số phòng ngủ
+                    if 'so_phong_ngu' in df.columns:
+                        df['so_phong_ngu'] = pd.to_numeric(df['so_phong_ngu'], errors='coerce')
+                        df['so_phong_ngu'] = df['so_phong_ngu'].fillna(2)
+                    else:
+                        df['so_phong_ngu'] = 2
+                    
+                    # Xử lý số tầng
+                    if 'tong_so_tang' in df.columns:
+                        df['tong_so_tang'] = pd.to_numeric(df['tong_so_tang'], errors='coerce')
+                        df['tong_so_tang'] = df['tong_so_tang'].fillna(2)
+                    else:
+                        df['tong_so_tang'] = 2
+                    
+                    # Xử lý quận
+                    if 'quan' not in df.columns:
+                        df['quan'] = "Gò Vấp"
+                    else:
+                        quan_std = {"Bình Thạnh": "Bình Thạnh", "Gò Vấp": "Gò Vấp", "Phú Nhuận": "Phú Nhuận"}
+                        df['quan'] = df['quan'].astype(str).str.strip()
+                        df['quan'] = df['quan'].apply(lambda x: quan_std.get(x, "Gò Vấp"))
+                    
+                    # Loại bỏ dòng không hợp lệ
+                    df_valid = df[(df['gia_ban'] > 0) & (df['dien_tich'] > 0)].copy()
+                    
+                    if len(df_valid) == 0:
+                        st.warning("⚠️ Không có dữ liệu hợp lệ để phân tích!")
+                        return None
+                    
+                    # Dự đoán phân khúc
+                    quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
+                    clusters = []
+                    
+                    for _, row in df_valid.iterrows():
+                        gia_num = row['gia_ban'] * 1e9
+                        price_per_m2 = gia_num / row['dien_tich']
+                        quan_encoded = quan_map.get(row['quan'], 0)
+                        
+                        new_data = np.array([[gia_num, row['dien_tich'], price_per_m2, quan_encoded]])
+                        new_scaled = models['scaler'].transform(new_data)
+                        cluster = models['kmeans'].predict(new_scaled)[0]
+                        clusters.append(cluster)
+                    
+                    df_valid['cluster'] = clusters
+                    df_valid['phân_khúc'] = df_valid['cluster'].apply(lambda x: models['cluster_info'][x]['segment'])
+                    
+                    return df_valid
+                
+                # Tiền xử lý và dự đoán
+                with st.spinner("🔄 Đang phân tích dữ liệu..."):
+                    df_result = clean_and_predict_cluster(df_raw)
+                    
+                    if df_result is None:
+                        st.stop()
+                    
+                    st.success(f"✅ Đã phân tích thành công {len(df_result)} bất động sản!")
+                    
+                    with st.expander("📊 Xem trước kết quả phân tích", expanded=False):
+                        st.dataframe(df_result[['gia_ban', 'dien_tich', 'so_phong_ngu', 'tong_so_tang', 'quan', 'phân_khúc']].head(10), use_container_width=True)
+                
+                # ========== BIỂU ĐỒ THỐNG KÊ ==========
+                st.subheader("📊 Thống kê theo phân khúc")
+                
+                # Biểu đồ phân bố phân khúc
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**🏷️ Phân bố phân khúc**")
+                    cluster_counts = df_result['phân_khúc'].value_counts()
+                    st.bar_chart(cluster_counts)
+                
+                with col2:
+                    st.markdown("**💰 Giá trung bình theo phân khúc**")
+                    avg_price_by_cluster = df_result.groupby('phân_khúc')['gia_ban'].mean().sort_values()
+                    st.bar_chart(avg_price_by_cluster)
+                
+                # Hàng 2: Diện tích và Số phòng ngủ
+                col3, col4 = st.columns(2)
+                
+                with col3:
+                    st.markdown("**📐 Diện tích trung bình theo phân khúc**")
+                    avg_area_by_cluster = df_result.groupby('phân_khúc')['dien_tich'].mean().sort_values()
+                    st.bar_chart(avg_area_by_cluster)
+                
+                with col4:
+                    st.markdown("**🛏️ Số phòng ngủ trung bình theo phân khúc**")
+                    avg_bedroom_by_cluster = df_result.groupby('phân_khúc')['so_phong_ngu'].mean().sort_values()
+                    st.bar_chart(avg_bedroom_by_cluster)
+                
+                # Hàng 3: Số tầng và Giá/m²
+                col5, col6 = st.columns(2)
+                
+                with col5:
+                    st.markdown("**🏢 Số tầng trung bình theo phân khúc**")
+                    avg_floor_by_cluster = df_result.groupby('phân_khúc')['tong_so_tang'].mean().sort_values()
+                    st.bar_chart(avg_floor_by_cluster)
+                
+                with col6:
+                    st.markdown("**💵 Giá/m² trung bình theo phân khúc**")
+                    df_result['gia_tren_m2'] = df_result['gia_ban'] / df_result['dien_tich']
+                    avg_price_m2_by_cluster = df_result.groupby('phân_khúc')['gia_tren_m2'].mean().sort_values()
+                    st.bar_chart(avg_price_m2_by_cluster)
+                
+                # ========== BẢNG CHI TIẾT ==========
+                st.subheader("📋 Bảng tổng hợp chi tiết")
+                
+                summary_table = df_result.groupby('phân_khúc').agg({
+                    'gia_ban': ['count', 'mean', 'min', 'max'],
+                    'dien_tich': ['mean', 'min', 'max'],
+                    'so_phong_ngu': 'mean',
+                    'tong_so_tang': 'mean'
+                }).round(2)
+                
+                summary_table.columns = ['Số lượng', 'Giá TB (tỷ)', 'Giá Min (tỷ)', 'Giá Max (tỷ)', 
+                                          'Diện tích TB (m²)', 'DT Min (m²)', 'DT Max (m²)',
+                                          'Phòng ngủ TB', 'Số tầng TB']
+                
+                st.dataframe(summary_table, use_container_width=True)
+                
+                # ========== TẢI KẾT QUẢ ==========
+                csv_results = df_result[['gia_ban', 'dien_tich', 'so_phong_ngu', 'tong_so_tang', 'quan', 'phân_khúc']].to_csv(index=False).encode('utf-8-sig')
+                st.download_button(
+                    label="📥 Tải kết quả phân tích (CSV)",
+                    data=csv_results,
+                    file_name="ket_qua_phan_tich_phan_khuc.csv",
+                    mime="text/csv",
+                    key="download_cluster_results"
+                )
+                
+                st.info("💡 **Gợi ý:** Bạn có thể tải kết quả về để phân tích thêm hoặc lưu trữ!")
+                
+            except Exception as e:
+                st.error(f"❌ Lỗi khi xử lý file: {str(e)}")
+                st.info("Vui lòng kiểm tra lại định dạng file CSV hoặc tải file mẫu để tham khảo.")
 
 # ==================== TÌM KIẾM & GỢI Ý ====================
 elif menu == "🔍 Tìm kiếm & Gợi ý":
