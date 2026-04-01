@@ -768,7 +768,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                     st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
         
-        # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
+                # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
         with sub_tab2:
             st.markdown("##### 📝 Nhập thông tin căn nhà bạn mong muốn")
             
@@ -924,10 +924,17 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                         
                         st.divider()
                         
-                        # Phần đề xuất: lấy top N căn có độ tương đồng cao nhất
+                        # ========== PHẦN ĐỀ XUẤT ==========
                         st.subheader(f"🎯 {n_recommend} căn nhà phù hợp nhất với bạn")
                         
-                        # Sử dụng TF-IDF để tìm căn phù hợp nhất với từ khóa tìm kiếm
+                        # Lấy các model cần thiết cho phân khúc
+                        features_kmeans = models['features_kmeans']
+                        scaler = models['scaler']
+                        kmeans = models['kmeans']
+                        cluster_info = models['cluster_info']
+                        quan_to_code = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
+                        
+                        # Xác định danh sách kết quả đề xuất
                         if keywords:
                             # Tạo vector cho từ khóa tìm kiếm
                             tfidf = models['tfidf_vectorizer']
@@ -945,45 +952,53 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                             top_scores = similarities[top_positions]
                             top_indices = [filtered_indices[p] for p in top_positions]
                             
-                            # Lọc bỏ những căn có độ tương đồng quá thấp
+                            # Tạo kết quả
                             results = [(idx, score) for idx, score in zip(top_indices, top_scores) if score > 0.05]
                             
                             if len(results) == 0:
-                                # Fallback: lấy N căn đầu tiên trong danh sách lọc
+                                # Fallback: lấy N căn đầu tiên
                                 results = [(filtered_indices[i], 0.5) for i in range(min(n_recommend, len(filtered_indices)))]
-                                st.info("💡 Gợi ý dựa trên bộ lọc của bạn (không có từ khóa cụ thể)")
+                                st.info("💡 Gợi ý dựa trên bộ lọc của bạn (không tìm thấy từ khóa phù hợp)")
                             else:
                                 st.info(f"💡 Gợi ý dựa trên từ khóa: **{keywords}**")
                         else:
-                            # Nếu không có từ khóa, lấy N căn đầu tiên trong danh sách lọc
+                            # Nếu không có từ khóa, lấy N căn đầu tiên
                             filtered_indices = filtered_df.index.tolist()
                             results = [(filtered_indices[i], 0.5) for i in range(min(n_recommend, len(filtered_indices)))]
                             st.info("💡 Gợi ý dựa trên bộ lọc của bạn")
                         
                         # Hiển thị kết quả đề xuất
-                        for i, (idx, score) in enumerate(results, 1):
-                            prop = df.loc[idx]
-                            match_percent = score * 100
-                            
-                            if 'cluster_kmeans' in prop.index:
-                                cluster = prop['cluster_kmeans']
-                                segment_name = models['cluster_info'].get(cluster, {}).get('segment', 'Chưa xác định')
-                            else:
-                                segment_name = "Chưa xác định"
-                            
-                            with st.expander(f"**{i}. {prop['tieu_de'][:80]}...** (Độ phù hợp: {match_percent:.1f}%)", expanded=(i==1)):
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.write(f"**💰 Giá bán:** {prop['gia_ban']}")
-                                    st.write(f"**📐 Diện tích:** {prop['dien_tich']}")
-                                    st.write(f"**📍 Vị trí:** {prop['quan']}")
-                                with col2:
-                                    st.write(f"**🌟 Phân khúc:** {segment_name}")
-                                    if score < 1.0:
-                                        st.progress(min(score, 1.0))
+                        if len(results) == 0:
+                            st.warning("⚠️ Không có căn nhà nào để hiển thị. Vui lòng thử lại với tiêu chí khác.")
+                        else:
+                            for i, (idx, score) in enumerate(results, 1):
+                                prop = df.loc[idx]
+                                match_percent = score * 100
                                 
-                                if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
-                                    st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")   
+                                # Tính phân khúc cho BĐS được gợi ý
+                                prop_features = pd.DataFrame([{
+                                    'gia_ban_num': prop['gia_ban_num'],
+                                    'dien_tich_num': prop['dien_tich_num'],
+                                    'price_per_m2': prop['price_per_m2'],
+                                    'quan_encoded': quan_to_code.get(prop['quan'], 0)
+                                }])
+                                prop_scaled = scaler.transform(prop_features[features_kmeans])
+                                prop_cluster = kmeans.predict(prop_scaled)[0]
+                                prop_segment = cluster_info[prop_cluster]['segment']
+                                
+                                with st.expander(f"**{i}. {prop['tieu_de'][:80]}...** (Độ phù hợp: {match_percent:.1f}%)", expanded=(i==1)):
+                                    col1, col2 = st.columns(2)
+                                    with col1:
+                                        st.write(f"**💰 Giá bán:** {prop['gia_ban']}")
+                                        st.write(f"**📐 Diện tích:** {prop['dien_tich']}")
+                                        st.write(f"**📍 Vị trí:** {prop['quan']}")
+                                    with col2:
+                                        st.write(f"**🌟 Phân khúc:** {prop_segment}")
+                                        if score < 1.0:
+                                            st.progress(min(score, 1.0))
+                                    
+                                    if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
+                                        st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...") 
         # ==================== TAB 2: UPLOAD CSV (GỢI Ý HÀNG LOẠT) ====================
     with tab2:
         st.markdown("""
