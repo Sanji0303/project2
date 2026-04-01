@@ -48,58 +48,73 @@ def load_models():
     
     # Tạo thông tin phân khúc (ngôn ngữ thương mại)
     cluster_info = {}
-    for cluster in sorted(df_clustered['cluster_kmeans'].unique()):
-        cluster_data = df_clustered[df_clustered['cluster_kmeans'] == cluster]
-        avg_price = cluster_data['gia_ban_num'].mean() / 1e9
-        avg_area = cluster_data['dien_tich_num'].mean()
-        
-        if avg_price < 3:
-            segment = "Phổ thông - Nhà nhỏ"
-            desc = "Phù hợp đầu tư sinh lời, sinh viên, người độc thân"
-            icon = "🏘️"
-            price_range = "Dưới 3 tỷ"
-            area_range = "Dưới 40m²"
-        elif avg_price < 6:
-            segment = "Trung cấp - Diện tích vừa"
-            desc = "Lựa chọn lý tưởng cho gia đình trẻ, vợ chồng mới cưới"
-            icon = "🏠"
-            price_range = "3 - 6 tỷ"
-            area_range = "40 - 60m²"
-        elif avg_price < 10:
-            segment = "Khá giả - Không gian rộng"
-            desc = "Không gian sống thoải mái cho gia đình 2-3 thế hệ"
-            icon = "🏢"
-            price_range = "6 - 10 tỷ"
-            area_range = "60 - 90m²"
-        elif avg_price < 15:
-            segment = "Cao cấp - Tiện nghi"
-            desc = "Môi trường sống chất lượng cao, an ninh đảm bảo"
-            icon = "🏰"
-            price_range = "10 - 15 tỷ"
-            area_range = "90 - 120m²"
-        elif avg_price < 25:
-            segment = "Siêu cao cấp - Biệt thự"
-            desc = "Khẳng định đẳng cấp, không gian sống sang trọng"
-            icon = "🏛️"
-            price_range = "15 - 25 tỷ"
-            area_range = "120 - 200m²"
-        else:
-            segment = "Hạng sang - Dinh thự"
-            desc = "Bất động sản tinh hoa dành cho giới thượng lưu"
-            icon = "👑"
-            price_range = "Trên 25 tỷ"
-            area_range = "Trên 200m²"
-        
-        cluster_info[cluster] = {
-            'segment': segment,
-            'description': desc,
-            'icon': icon,
-            'avg_price': avg_price,
-            'avg_area': avg_area,
-            'count': len(cluster_data),
-            'price_range': price_range,
-            'area_range': area_range
-        }
+segment_counter = {}  # Đếm số lượng cụm trong mỗi phân khúc
+
+for cluster in sorted(df_clustered['cluster_kmeans'].unique()):
+    cluster_data = df_clustered[df_clustered['cluster_kmeans'] == cluster]
+    avg_price = cluster_data['gia_ban_num'].mean() / 1e9
+    avg_area = cluster_data['dien_tich_num'].mean()
+    
+    # Xác định tên phân khúc cơ bản
+    if avg_price < 3:
+        base_segment = "Phổ thông - Nhà nhỏ"
+        desc = "Phù hợp đầu tư sinh lời, sinh viên, người độc thân"
+        icon = "🏘️"
+        price_range = "Dưới 3 tỷ"
+        area_range = "Dưới 40m²"
+    elif avg_price < 6:
+        base_segment = "Trung cấp - Diện tích vừa"
+        desc = "Lựa chọn lý tưởng cho gia đình trẻ, vợ chồng mới cưới"
+        icon = "🏠"
+        price_range = "3 - 6 tỷ"
+        area_range = "40 - 60m²"
+    elif avg_price < 10:
+        base_segment = "Khá giả - Không gian rộng"
+        desc = "Không gian sống thoải mái cho gia đình 2-3 thế hệ"
+        icon = "🏢"
+        price_range = "6 - 10 tỷ"
+        area_range = "60 - 90m²"
+    elif avg_price < 15:
+        base_segment = "Cao cấp - Tiện nghi"
+        desc = "Môi trường sống chất lượng cao, an ninh đảm bảo"
+        icon = "🏰"
+        price_range = "10 - 15 tỷ"
+        area_range = "90 - 120m²"
+    elif avg_price < 25:
+        base_segment = "Siêu cao cấp - Biệt thự"
+        desc = "Khẳng định đẳng cấp, không gian sống sang trọng"
+        icon = "🏛️"
+        price_range = "15 - 25 tỷ"
+        area_range = "120 - 200m²"
+    else:
+        base_segment = "Hạng sang - Dinh thự"
+        desc = "Bất động sản tinh hoa dành cho giới thượng lưu"
+        icon = "👑"
+        price_range = "Trên 25 tỷ"
+        area_range = "Trên 200m²"
+    
+    # Đếm số lần xuất hiện của base_segment
+    if base_segment not in segment_counter:
+        segment_counter[base_segment] = 1
+    else:
+        segment_counter[base_segment] += 1
+    
+    # Tạo tên phân biệt nếu có nhiều cụm cùng loại
+    if segment_counter[base_segment] > 1:
+        segment = f"{base_segment} - {segment_counter[base_segment]}"
+    else:
+        segment = base_segment
+    
+    cluster_info[cluster] = {
+        'segment': segment,
+        'description': desc,
+        'icon': icon,
+        'avg_price': avg_price,
+        'avg_area': avg_area,
+        'count': len(cluster_data),
+        'price_range': price_range,
+        'area_range': area_range
+    }
     
     models['cluster_info'] = cluster_info
     
