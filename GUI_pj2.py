@@ -724,15 +724,89 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                     st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
         
-        # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
+                # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
         with sub_tab2:
             st.markdown("##### 📝 Nhập thông tin căn nhà bạn mong muốn")
             
+            # Khởi tạo các biến mặc định
+            selected_quan = "Tất cả"
+            price_range = "Tất cả"
+            area_range = "Tất cả"
+            property_type = []
+            features = []
+            keywords = ""
+            n_recommend = 5
+            
             # Form nhập thông tin
             with st.form("detailed_search_form"):
-                # ... (phần form nhập liệu giữ nguyên) ...
+                st.markdown("**📍 Thông tin cơ bản**")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    selected_quan = st.selectbox(
+                        "Khu vực", 
+                        options=["Tất cả", "Bình Thạnh", "Gò Vấp", "Phú Nhuận"],
+                        index=0
+                    )
+                
+                with col2:
+                    price_range = st.selectbox(
+                        "Tài chính",
+                        options=[
+                            "Tất cả", "Dưới 3 tỷ", "3 - 6 tỷ", "6 - 10 tỷ",
+                            "10 - 15 tỷ", "15 - 25 tỷ", "Trên 25 tỷ"
+                        ],
+                        index=0
+                    )
+                
+                with col3:
+                    area_range = st.selectbox(
+                        "Diện tích mong muốn",
+                        options=[
+                            "Tất cả", "Dưới 40 m²", "40 - 60 m²", "60 - 90 m²",
+                            "90 - 120 m²", "120 - 200 m²", "Trên 200 m²"
+                        ],
+                        index=0
+                    )
+                
+                st.markdown("**🏢 Đặc điểm chi tiết**")
+                col4, col5 = st.columns(2)
+                
+                with col4:
+                    property_type = st.multiselect(
+                        "Loại hình",
+                        options=["Nhà phố", "Biệt thự", "Căn hộ", "Nhà mặt tiền", "Nhà hẻm"],
+                        help="Có thể chọn nhiều loại hình"
+                    )
+                
+                with col5:
+                    features = st.multiselect(
+                        "Tiện ích nổi bật",
+                        options=[
+                            "Hẻm ô tô", "Mặt tiền", "Nội thất đầy đủ", "Nhà mới xây",
+                            "Gần trường học", "Gần chợ", "Gần bệnh viện", "Khu an ninh"
+                        ],
+                        help="Chọn các tiện ích bạn mong muốn"
+                    )
+                
+                keywords = st.text_input(
+                    "🔎 Từ khóa tự do",
+                    placeholder="Ví dụ: nhà đẹp, hẻm ô tô, gần chợ, thoáng mát...",
+                    help="Nhập các từ khóa cách nhau bằng dấu cách"
+                )
+                
+                st.markdown("---")
+                col6, col7, col8 = st.columns([1, 2, 1])
+                with col7:
+                    n_recommend = st.slider(
+                        "🔢 Số lượng gợi ý muốn xem:",
+                        min_value=3, max_value=15, value=5, step=1,
+                        help="Chọn từ 3 đến 15 căn nhà sẽ được đề xuất"
+                    )
+                
                 submitted = st.form_submit_button("🔍 Tìm kiếm nhà phù hợp", type="primary", use_container_width=True)
             
+            # Xử lý khi submit form
             if submitted:
                 with st.spinner("🔍 Hệ thống đang quét hàng ngàn tin đăng..."):
                     df = models['df_recommend']
@@ -777,7 +851,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                         min_a, max_a = area_map[area_range]
                         filtered_df = filtered_df[(filtered_df['dien_tich_num'] >= min_a) & (filtered_df['dien_tich_num'] <= max_a)]
                     
-                    # 4. Lọc theo loại hình (chỉ trong tiêu đề, vì không có mô tả)
+                    # 4. Lọc theo loại hình (chỉ trong tiêu đề)
                     if property_type:
                         type_pattern = '|'.join(property_type)
                         filtered_df = filtered_df[filtered_df['tieu_de'].str.contains(type_pattern, case=False, na=False)]
@@ -789,28 +863,26 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                     elif features and not has_description:
                         st.info("ℹ️ Bỏ qua bộ lọc 'Tiện ích' vì dữ liệu không có mô tả chi tiết.")
                     
-                    # 6. Lọc theo từ khóa (CHỈ KHI CÓ TỪ KHÓA VÀ CÓ CỘT MÔ TẢ)
-                    if keywords and has_description:
+                    # 6. Lọc theo từ khóa
+                    if keywords:
                         keyword_list = [k.strip() for k in keywords.split() if k.strip()]
                         if keyword_list:
-                            combined_mask = pd.Series(True, index=filtered_df.index)
-                            for kw in keyword_list:
-                                title_mask = filtered_df['tieu_de'].str.contains(kw, case=False, na=False)
-                                desc_mask = filtered_df['mo_ta'].str.contains(kw, case=False, na=False) if has_description else pd.Series(False, index=filtered_df.index)
-                                combined_mask = combined_mask & (title_mask | desc_mask)
-                            filtered_df = filtered_df[combined_mask]
-                    elif keywords and not has_description:
-                        # Nếu không có mô tả, chỉ tìm trong tiêu đề
-                        keyword_list = [k.strip() for k in keywords.split() if k.strip()]
-                        if keyword_list:
-                            combined_mask = pd.Series(True, index=filtered_df.index)
-                            for kw in keyword_list:
-                                title_mask = filtered_df['tieu_de'].str.contains(kw, case=False, na=False)
-                                combined_mask = combined_mask & title_mask
-                            filtered_df = filtered_df[combined_mask]
+                            if has_description:
+                                combined_mask = pd.Series(True, index=filtered_df.index)
+                                for kw in keyword_list:
+                                    title_mask = filtered_df['tieu_de'].str.contains(kw, case=False, na=False)
+                                    desc_mask = filtered_df['mo_ta'].str.contains(kw, case=False, na=False)
+                                    combined_mask = combined_mask & (title_mask | desc_mask)
+                                filtered_df = filtered_df[combined_mask]
+                            else:
+                                combined_mask = pd.Series(True, index=filtered_df.index)
+                                for kw in keyword_list:
+                                    title_mask = filtered_df['tieu_de'].str.contains(kw, case=False, na=False)
+                                    combined_mask = combined_mask & title_mask
+                                filtered_df = filtered_df[combined_mask]
                     
-                    # Hiển thị thông tin debug (ẩn trong expander để gọn)
-                    with st.expander("📊 Chi tiết bộ lọc (debug)", expanded=False):
+                    # Hiển thị thông tin debug
+                    with st.expander("📊 Chi tiết bộ lọc", expanded=False):
                         st.write(f"- Tổng số BĐS ban đầu: {original_count} căn")
                         st.write(f"- Sau lọc quận: {len(filtered_df)} căn")
                         st.write(f"- Sau lọc giá: {len(filtered_df)} căn")
@@ -827,14 +899,14 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                         st.warning("⚠️ Rất tiếc, không tìm thấy bất động sản nào phù hợp với tiêu chí của bạn.")
                         st.info("💡 **Gợi ý:** Hãy thử:\n- Chọn 'Tất cả' cho khu vực\n- Chọn khoảng giá rộng hơn\n- Giảm bớt loại hình\n- Không chọn tiện ích\n- Không nhập từ khóa")
                         
-                        # Hiển thị một số căn mẫu để người dùng tham khảo
+                        # Hiển thị một số căn mẫu
                         with st.expander("📋 Xem một số căn nhà mẫu trong hệ thống", expanded=False):
                             sample_df = df.head(10).copy()
                             sample_df['Hiển thị'] = sample_df.apply(
                                 lambda x: f"🏠 {str(x['tieu_de'])[:70]}... | 💰 {x['gia_ban']} | 📐 {x['dien_tich']} | 📍 {x['quan']}",
                                 axis=1
                             )
-                            for i, row in sample_df.iterrows():
+                            for idx, row in sample_df.iterrows():
                                 st.write(f"- {row['Hiển thị']}")
                     else:
                         st.success(f"✅ Tìm thấy **{len(filtered_df)}** căn nhà phù hợp với tiêu chí của bạn!")
@@ -897,7 +969,6 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                     
                                     if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                         st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
-
     
         # ==================== TAB 2: UPLOAD CSV (GỢI Ý HÀNG LOẠT) ====================
     with tab2:
