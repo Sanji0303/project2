@@ -592,7 +592,13 @@ elif menu == "🎯 Khám phá phân khúc":
             except Exception as e:
                 st.error(f"❌ Lỗi khi xử lý file: {str(e)}")
                 st.info("Vui lòng kiểm tra lại định dạng file CSV. Hệ thống cần ít nhất 2 cột: giá và diện tích.")
-
+# ==================== TÌM KIẾM & GỢI Ý ====================
+elif menu == "🔍 Tìm kiếm & Gợi ý":
+    st.title("🔍 Tìm kiếm & Gợi ý Bất động sản")
+    st.write("Hệ thống gợi ý thông minh sẽ giúp bạn tìm được những căn nhà có đặc điểm tương đồng nhất với sở thích của bạn.")
+    
+    # Tạo 2 tab: Nhập thủ công và Upload file
+    tab1, tab2 = st.tabs(["📝 Nhập thủ công", "📂 Upload file CSV (Gợi ý hàng loạt)"])
 # ==================== TAB 1: NHẬP THỦ CÔNG ====================
     with tab1:
         st.markdown("""
