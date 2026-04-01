@@ -69,19 +69,11 @@ def load_models():
             price_range = "3 - 6 tỷ"
             area_range = "40 - 60m²"
         elif avg_price < 10:
-            # Phân biệt 2 cụm Khá giả dựa trên diện tích
-            if avg_area < 75:
-                base_segment = "Khá giả - Nhà phố trung tâm"
-                desc = "Không gian sống thoải mái tại khu vực trung tâm, thuận tiện di chuyển"
-                icon = "🏢"
-                price_range = "6 - 10 tỷ"
-                area_range = "60 - 80m²"
-            else:
-                base_segment = "Khá giả - Nhà vườn rộng rãi"
-                desc = "Không gian sống rộng rãi, thoáng mát, phù hợp gia đình đa thế hệ"
-                icon = "🏡"
-                price_range = "6 - 10 tỷ"
-                area_range = "80 - 100m²"
+            base_segment = "Khá giả - Không gian rộng"
+            desc = "Không gian sống thoải mái cho gia đình 2-3 thế hệ"
+            icon = "🏢"
+            price_range = "6 - 10 tỷ"
+            area_range = "60 - 90m²"
         elif avg_price < 15:
             base_segment = "Cao cấp - Tiện nghi"
             desc = "Môi trường sống chất lượng cao, an ninh đảm bảo"
@@ -101,14 +93,14 @@ def load_models():
             price_range = "Trên 25 tỷ"
             area_range = "Trên 200m²"
         
-        # Đếm số lần xuất hiện của base_segment (vẫn giữ để xử lý các trường hợp khác)
+        # Đếm số lần xuất hiện của base_segment
         if base_segment not in segment_counter:
             segment_counter[base_segment] = 1
         else:
             segment_counter[base_segment] += 1
         
-        # Tạo tên phân biệt (đã phân biệt ở trên nên không cần thêm số)
-        if segment_counter[base_segment] > 1 and "Khá giả" not in base_segment:
+        # Tạo tên phân biệt nếu có nhiều cụm cùng loại
+        if segment_counter[base_segment] > 1:
             segment = f"{base_segment} (Nhóm {segment_counter[base_segment]})"
         else:
             segment = base_segment
