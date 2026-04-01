@@ -769,7 +769,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                     st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
         
                 # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
-        with sub_tab2:
+    with sub_tab2:
             st.markdown("##### 📝 Nhập thông tin căn nhà bạn mong muốn")
             
             # Form nhập thông tin
