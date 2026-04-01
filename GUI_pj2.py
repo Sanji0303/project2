@@ -754,7 +754,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                     
                                     if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                         st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")    
-    # ==================== TAB 2: UPLOAD CSV (GỢI Ý HÀNG LOẠT) ====================
+        # ==================== TAB 2: UPLOAD CSV (GỢI Ý HÀNG LOẠT) ====================
     with tab2:
         st.markdown("""
         ### 📂 Gợi ý bất động sản hàng loạt bằng file CSV
@@ -806,10 +806,9 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                 
                 # ========== HÀM TIỀN XỬ LÝ ==========
                 def clean_batch_recommend_data(df):
-                    
                     # Chuẩn hóa tên cột
                     rename_map = {
-                        'tiêu đề': 'tieu_de', 'tiêu đề': 'tieu_de', 'title': 'tieu_de',
+                        'tiêu đề': 'tieu_de', 'title': 'tieu_de',
                         'giá bán': 'gia_ban', 'giá': 'gia_ban', 'price': 'gia_ban',
                         'diện tích': 'dien_tich', 'area': 'dien_tich',
                         'quận': 'quan', 'district': 'quan',
@@ -884,7 +883,6 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 results_list.append({
                                     "STT": idx + 1,
                                     "Tiêu đề BĐS cần tìm": row['tieu_de'][:50],
-                                    "Số lượng gợi ý": 0,
                                     "Kết quả": "Không tìm thấy BĐS cùng khu vực"
                                 })
                                 continue
@@ -903,17 +901,15 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                             top_indices = similarities.argsort()[::-1][:5]
                             top_scores = similarities[top_indices]
                             
-                            # Lưu kết quả
+                            # Lưu kết quả - ĐÃ BỎ CỘT GIÁ VÀ DIỆN TÍCH
                             result_row = {
                                 "STT": idx + 1,
                                 "Tiêu đề BĐS cần tìm": row['tieu_de'][:80],
-                                "Giá (tỷ)": row['gia_ban'] if row['gia_ban'] > 0 else "Không có",
-                                "Diện tích (m²)": row['dien_tich'] if row['dien_tich'] > 0 else "Không có",
                                 "Quận": row['quan'],
                             }
                             
                             for i, (pos, score) in enumerate(zip(top_indices, top_scores), 1):
-                                if score > 0.01:  # Chỉ hiển thị nếu độ tương đồng > 1%
+                                if score > 0.01:
                                     prop = candidates.iloc[pos]
                                     result_row[f"Gợi ý {i}"] = f"{prop['tieu_de'][:60]}... | {prop['gia_ban']} | Độ phù hợp: {score*100:.0f}%"
                                 else:
