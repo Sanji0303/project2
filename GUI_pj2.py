@@ -365,8 +365,8 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                     st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
         
-                # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
-    with sub_tab2:
+        # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
+        with sub_tab2:
             st.markdown("##### 📝 Nhập thông tin căn nhà bạn mong muốn")
             
             # Form nhập thông tin
@@ -595,7 +595,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                             st.progress(min(score, 1.0))
                                     
                                     if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
-                                        st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...") 
+                                        st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
         # ==================== TAB 2: UPLOAD CSV (GỢI Ý HÀNG LOẠT) ====================
     with tab2:
         st.markdown("""
