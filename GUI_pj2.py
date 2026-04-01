@@ -416,8 +416,8 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                             st.info("Chưa tìm thấy thêm căn nhà nào tương tự trong danh sách lọc hiện tại.")
                         else:
                             for i, (idx, score) in enumerate(similar_results, 1):
-                            prop = df.iloc[idx]
-                            match_percent = score * 100
+                                prop = df.iloc[idx]
+                                match_percent = score * 100
                 
                             if 'cluster_kmeans' in prop.index:
                                 cluster = prop['cluster_kmeans']
