@@ -724,28 +724,34 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                     st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
         
-                # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
+        # ==================== SUB-TAB 2: NHẬP THÔNG TIN CHI TIẾT ====================
         with sub_tab2:
             st.markdown("##### 📝 Nhập thông tin căn nhà bạn mong muốn")
             
-            # Khởi tạo các biến mặc định
-            selected_quan = "Tất cả"
-            price_range = "Tất cả"
-            area_range = "Tất cả"
-            property_type = []
-            features = []
-            keywords = ""
-            n_recommend = 5
+            df = models['df_recommend']
+            features_matrix = models['features']
             
-            # Form nhập thông tin
-            with st.form("detailed_search_form"):
+            # Lấy các model cần thiết cho phân khúc
+            features_kmeans = models['features_kmeans']
+            scaler = models['scaler']
+            kmeans = models['kmeans']
+            cluster_info = models['cluster_info']
+            quan_to_code = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
+            
+            if 'search_results_tab2' not in st.session_state:
+                st.session_state.search_results_tab2 = None
+            if 'selected_property_tab2' not in st.session_state:
+                st.session_state.selected_property_tab2 = None
+            
+            # Form tìm kiếm
+            with st.form("search_form_tab2"):
                 st.markdown("**📍 Thông tin cơ bản**")
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     selected_quan = st.selectbox(
                         "Khu vực", 
-                        options=["Tất cả", "Bình Thạnh", "Gò Vấp", "Phú Nhuận"],
+                        options=["Tất cả"] + df['quan'].unique().tolist(),
                         index=0
                     )
                 
@@ -791,7 +797,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                 
                 keywords = st.text_input(
                     "🔎 Từ khóa tự do",
-                    placeholder="Ví dụ: nhà đẹp, hẻm ô tô, gần chợ, thoáng mát...",
+                    placeholder="Ví dụ: nhà đẹp hẻm ô tô gần chợ",
                     help="Nhập các từ khóa cách nhau bằng dấu cách"
                 )
                 
@@ -806,20 +812,9 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                 
                 submitted = st.form_submit_button("🔍 Tìm kiếm nhà phù hợp", type="primary", use_container_width=True)
             
-            # Xử lý khi submit form
             if submitted:
-                with st.spinner("🔍 Hệ thống đang quét hàng ngàn tin đăng..."):
-                    df = models['df_recommend']
-                    features_matrix = models['features']
+                with st.spinner("Hệ thống đang quét hàng ngàn tin đăng..."):
                     filtered_df = df.copy()
-                    
-                    # Kiểm tra xem có cột mo_ta không
-                    has_description = 'mo_ta' in filtered_df.columns
-                    if not has_description:
-                        st.info("ℹ️ Lưu ý: Dữ liệu hiện tại không có mô tả chi tiết, các bộ lọc liên quan đến mô tả sẽ được bỏ qua.")
-                    
-                    # Lưu số lượng ban đầu để debug
-                    original_count = len(filtered_df)
                     
                     # 1. Lọc theo quận
                     if selected_quan != "Tất cả":
@@ -851,124 +846,144 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                         min_a, max_a = area_map[area_range]
                         filtered_df = filtered_df[(filtered_df['dien_tich_num'] >= min_a) & (filtered_df['dien_tich_num'] <= max_a)]
                     
-                    # 4. Lọc theo loại hình (chỉ trong tiêu đề)
-                    if property_type:
-                        type_pattern = '|'.join(property_type)
-                        filtered_df = filtered_df[filtered_df['tieu_de'].str.contains(type_pattern, case=False, na=False)]
-                    
-                    # 5. Lọc theo tiện ích (CHỈ KHI CÓ CỘT MÔ TẢ)
-                    if features and has_description:
-                        feature_pattern = '|'.join(features)
-                        filtered_df = filtered_df[filtered_df['mo_ta'].str.contains(feature_pattern, case=False, na=False)]
-                    elif features and not has_description:
-                        st.info("ℹ️ Bỏ qua bộ lọc 'Tiện ích' vì dữ liệu không có mô tả chi tiết.")
-                    
-                    # 6. Lọc theo từ khóa
+                    # 4. Lọc theo từ khóa (OR logic)
                     if keywords:
                         keyword_list = [k.strip() for k in keywords.split() if k.strip()]
                         if keyword_list:
-                            if has_description:
-                                combined_mask = pd.Series(True, index=filtered_df.index)
-                                for kw in keyword_list:
-                                    title_mask = filtered_df['tieu_de'].str.contains(kw, case=False, na=False)
+                            combined_mask = pd.Series(False, index=filtered_df.index)
+                            for kw in keyword_list:
+                                title_mask = filtered_df['tieu_de'].str.contains(kw, case=False, na=False)
+                                desc_mask = pd.Series(False, index=filtered_df.index)
+                                if 'mo_ta' in filtered_df.columns:
                                     desc_mask = filtered_df['mo_ta'].str.contains(kw, case=False, na=False)
-                                    combined_mask = combined_mask & (title_mask | desc_mask)
-                                filtered_df = filtered_df[combined_mask]
+                                combined_mask = combined_mask | title_mask | desc_mask
+                            filtered_df = filtered_df[combined_mask]
+                    
+                    # 5. Lọc theo loại hình
+                    if property_type:
+                        type_pattern = '|'.join(property_type)
+                        mask = filtered_df['tieu_de'].str.contains(type_pattern, case=False, na=False)
+                        if 'mo_ta' in filtered_df.columns:
+                            mask = mask | filtered_df['mo_ta'].str.contains(type_pattern, case=False, na=False)
+                        filtered_df = filtered_df[mask]
+                    
+                    # 6. Lọc theo tiện ích (chỉ khi có cột mô tả)
+                    if features and 'mo_ta' in filtered_df.columns:
+                        feature_pattern = '|'.join(features)
+                        filtered_df = filtered_df[filtered_df['mo_ta'].str.contains(feature_pattern, case=False, na=False)]
+                    
+                    st.session_state.search_results_tab2 = filtered_df
+                    st.session_state.selected_property_tab2 = None
+            
+            # Hiển thị kết quả tìm kiếm
+            if st.session_state.search_results_tab2 is not None:
+                filtered_df = st.session_state.search_results_tab2
+                
+                if len(filtered_df) == 0:
+                    st.warning("⚠️ Rất tiếc, không tìm thấy bất động sản nào phù hợp với tiêu chí của bạn. Hãy thử nới lỏng các yêu cầu nhé!")
+                else:
+                    # ========== HIỂN THỊ DANH SÁCH KẾT QUẢ TÌM KIẾM ==========
+                    st.success(f"✅ Tìm thấy **{len(filtered_df)}** căn nhà phù hợp với bạn!")
+                    
+                    with st.expander("📋 Xem danh sách kết quả tìm kiếm", expanded=True):
+                        display_df = filtered_df.copy()
+                        display_df['Hiển thị'] = display_df.apply(
+                            lambda x: f"🏠 {str(x['tieu_de'])[:70]}... | 💰 {x['gia_ban']} | 📐 {x['dien_tich']} | 📍 {x['quan']}",
+                            axis=1
+                        )
+                        for i, (idx, row) in enumerate(display_df.head(20).iterrows(), 1):
+                            st.write(f"{i}. {row['Hiển thị']}")
+                        if len(display_df) > 20:
+                            st.info(f"... và {len(display_df) - 20} căn khác")
+                    
+                    st.divider()
+                    
+                    # ========== CHỌN BĐS ĐỂ XEM GỢI Ý ==========
+                    st.subheader("🏠 Chọn một căn nhà bạn thích để xem các gợi ý tương tự")
+                    
+                    filtered_df['display'] = filtered_df.apply(
+                        lambda x: f"🏠 {str(x['tieu_de'])[:80]}... | Giá: {x['gia_ban']} | DT: {x['dien_tich']} | {x['quan']}",
+                        axis=1
+                    )
+                    
+                    selected_idx = st.selectbox(
+                        "Danh sách nhà phù hợp:",
+                        options=range(len(filtered_df)),
+                        format_func=lambda x: filtered_df.iloc[x]['display'],
+                        key="property_selector_tab2"
+                    )
+                    
+                    selected_prop = filtered_df.iloc[selected_idx]
+                    st.session_state.selected_property_tab2 = selected_prop.name
+                    
+                    # Tính phân khúc cho BĐS được chọn
+                    selected_features = pd.DataFrame([{
+                        'gia_ban_num': selected_prop['gia_ban_num'],
+                        'dien_tich_num': selected_prop['dien_tich_num'],
+                        'price_per_m2': selected_prop['price_per_m2'],
+                        'quan_encoded': quan_to_code.get(selected_prop['quan'], 0)
+                    }])
+                    selected_scaled = scaler.transform(selected_features[features_kmeans])
+                    selected_cluster = kmeans.predict(selected_scaled)[0]
+                    selected_segment = cluster_info[selected_cluster]['segment']
+                    
+                    with st.expander("📋 Thông tin chi tiết căn nhà đang chọn", expanded=True):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write(f"**🏷️ Tiêu đề:** {selected_prop['tieu_de']}")
+                            st.write(f"**💰 Giá bán:** {selected_prop['gia_ban']}")
+                            st.write(f"**📐 Diện tích:** {selected_prop['dien_tich']}")
+                        with col2:
+                            st.write(f"**📍 Vị trí:** {selected_prop['quan']}")
+                            st.write(f"**🌟 Phân khúc:** {selected_segment}")
+                    
+                    # ========== PHẦN GỢI Ý ==========
+                    st.subheader("🎯 Có thể bạn cũng sẽ thích những căn nhà này")
+                    n_recommend = st.slider("Số lượng gợi ý bạn muốn xem:", 3, 15, 5, key="n_recommend_tab2")
+                    
+                    if st.button("✨ Xem danh sách gợi ý", type="primary", key="recommend_btn_tab2"):
+                        with st.spinner("Hệ thống AI đang tìm kiếm những căn nhà có đặc điểm tương đồng nhất..."):
+                            original_idx = selected_prop.name
+                            
+                            # Tìm các BĐS tương tự trong toàn bộ df
+                            all_similar = get_similar_properties(original_idx, features_matrix, df, n_recommend + 10)
+                            
+                            # Lọc chỉ lấy BĐS cùng quận và khác BĐS gốc
+                            similar_results = [(idx, score) for idx, score in all_similar 
+                                              if idx != original_idx and df.loc[idx, 'quan'] == selected_prop['quan']]
+                            
+                            similar_results = similar_results[:n_recommend]
+                            
+                            if len(similar_results) == 0:
+                                st.info("Chưa tìm thấy thêm căn nhà nào tương tự trong cùng khu vực.")
                             else:
-                                combined_mask = pd.Series(True, index=filtered_df.index)
-                                for kw in keyword_list:
-                                    title_mask = filtered_df['tieu_de'].str.contains(kw, case=False, na=False)
-                                    combined_mask = combined_mask & title_mask
-                                filtered_df = filtered_df[combined_mask]
-                    
-                    # Hiển thị thông tin debug
-                    with st.expander("📊 Chi tiết bộ lọc", expanded=False):
-                        st.write(f"- Tổng số BĐS ban đầu: {original_count} căn")
-                        st.write(f"- Sau lọc quận: {len(filtered_df)} căn")
-                        st.write(f"- Sau lọc giá: {len(filtered_df)} căn")
-                        st.write(f"- Sau lọc diện tích: {len(filtered_df)} căn")
-                        if property_type:
-                            st.write(f"- Sau lọc loại hình: {len(filtered_df)} căn")
-                        if features:
-                            st.write(f"- Sau lọc tiện ích: {len(filtered_df)} căn")
-                        if keywords:
-                            st.write(f"- Sau lọc từ khóa: {len(filtered_df)} căn")
-                    
-                    # Hiển thị kết quả
-                    if len(filtered_df) == 0:
-                        st.warning("⚠️ Rất tiếc, không tìm thấy bất động sản nào phù hợp với tiêu chí của bạn.")
-                        st.info("💡 **Gợi ý:** Hãy thử:\n- Chọn 'Tất cả' cho khu vực\n- Chọn khoảng giá rộng hơn\n- Giảm bớt loại hình\n- Không chọn tiện ích\n- Không nhập từ khóa")
-                        
-                        # Hiển thị một số căn mẫu
-                        with st.expander("📋 Xem một số căn nhà mẫu trong hệ thống", expanded=False):
-                            sample_df = df.head(10).copy()
-                            sample_df['Hiển thị'] = sample_df.apply(
-                                lambda x: f"🏠 {str(x['tieu_de'])[:70]}... | 💰 {x['gia_ban']} | 📐 {x['dien_tich']} | 📍 {x['quan']}",
-                                axis=1
-                            )
-                            for idx, row in sample_df.iterrows():
-                                st.write(f"- {row['Hiển thị']}")
-                    else:
-                        st.success(f"✅ Tìm thấy **{len(filtered_df)}** căn nhà phù hợp với tiêu chí của bạn!")
-                        
-                        # Hiển thị danh sách kết quả tìm kiếm
-                        with st.expander("📋 Xem danh sách kết quả tìm kiếm", expanded=False):
-                            display_df = filtered_df.copy()
-                            display_df['Hiển thị'] = display_df.apply(
-                                lambda x: f"🏠 {str(x['tieu_de'])[:70]}... | 💰 {x['gia_ban']} | 📐 {x['dien_tich']} | 📍 {x['quan']}",
-                                axis=1
-                            )
-                            for i, (idx, row) in enumerate(display_df.head(20).iterrows(), 1):
-                                st.write(f"{i}. {row['Hiển thị']}")
-                            if len(display_df) > 20:
-                                st.info(f"... và {len(display_df) - 20} căn khác")
-                        
-                        st.divider()
-                        
-                        # ========== PHẦN ĐỀ XUẤT ==========
-                        st.subheader(f"🎯 {n_recommend} căn nhà phù hợp nhất với bạn")
-                        
-                        # Lấy các model cần thiết cho phân khúc
-                        features_kmeans = models['features_kmeans']
-                        scaler = models['scaler']
-                        kmeans = models['kmeans']
-                        cluster_info = models['cluster_info']
-                        quan_to_code = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
-                        
-                        # Lấy danh sách các căn để hiển thị
-                        filtered_indices = filtered_df.index.tolist()
-                        results = [(filtered_indices[i], 0.5) for i in range(min(n_recommend, len(filtered_indices)))]
-                        
-                        # Hiển thị kết quả
-                        if len(results) == 0:
-                            st.warning("⚠️ Không có căn nhà nào để hiển thị.")
-                        else:
-                            for i, (idx, score) in enumerate(results, 1):
-                                prop = df.loc[idx]
-                                match_percent = score * 100
-                                
-                                # Tính phân khúc cho BĐS được gợi ý
-                                prop_features = pd.DataFrame([{
-                                    'gia_ban_num': prop['gia_ban_num'],
-                                    'dien_tich_num': prop['dien_tich_num'],
-                                    'price_per_m2': prop['price_per_m2'],
-                                    'quan_encoded': quan_to_code.get(prop['quan'], 0)
-                                }])
-                                prop_scaled = scaler.transform(prop_features[features_kmeans])
-                                prop_cluster = kmeans.predict(prop_scaled)[0]
-                                prop_segment = cluster_info[prop_cluster]['segment']
-                                
-                                with st.expander(f"**{i}. {prop['tieu_de'][:80]}...**", expanded=(i==1)):
-                                    col1, col2 = st.columns(2)
-                                    with col1:
-                                        st.write(f"**💰 Giá bán:** {prop['gia_ban']}")
-                                        st.write(f"**📐 Diện tích:** {prop['dien_tich']}")
-                                        st.write(f"**📍 Vị trí:** {prop['quan']}")
-                                    with col2:
-                                        st.write(f"**🌟 Phân khúc:** {prop_segment}")
+                                for i, (idx, score) in enumerate(similar_results, 1):
+                                    prop = df.loc[idx]
+                                    match_percent = score * 100
                                     
-                                    if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
-                                        st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
+                                    # Tính phân khúc cho BĐS được gợi ý
+                                    prop_features = pd.DataFrame([{
+                                        'gia_ban_num': prop['gia_ban_num'],
+                                        'dien_tich_num': prop['dien_tich_num'],
+                                        'price_per_m2': prop['price_per_m2'],
+                                        'quan_encoded': quan_to_code.get(prop['quan'], 0)
+                                    }])
+                                    prop_scaled = scaler.transform(prop_features[features_kmeans])
+                                    prop_cluster = kmeans.predict(prop_scaled)[0]
+                                    prop_segment = cluster_info[prop_cluster]['segment']
+                                    
+                                    with st.expander(f"**{i}. {prop['tieu_de'][:80]}...** (Độ phù hợp: {match_percent:.1f}%)", expanded=(i==1)):
+                                        col1, col2 = st.columns(2)
+                                        with col1:
+                                            st.write(f"**💰 Giá bán:** {prop['gia_ban']}")
+                                            st.write(f"**📐 Diện tích:** {prop['dien_tich']}")
+                                            st.write(f"**📍 Vị trí:** {prop['quan']}")
+                                        with col2:
+                                            st.write(f"**🌟 Phân khúc:** {prop_segment}")
+                                            st.progress(min(score, 1.0))
+                                        
+                                        if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
+                                            st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
     
         # ==================== TAB 2: UPLOAD CSV (GỢI Ý HÀNG LOẠT) ====================
     with tab2:
