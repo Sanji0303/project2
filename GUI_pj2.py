@@ -394,49 +394,42 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                 
                 st.subheader("🎯 Có thể bạn cũng sẽ thích những căn nhà này")
                 n_recommend = st.slider("Số lượng gợi ý bạn muốn xem:", 3, 10, 5)
-                
+
                 if st.button("✨ Xem danh sách gợi ý", type="primary"):
                     with st.spinner("Hệ thống AI đang tìm kiếm những căn nhà có đặc điểm tương đồng nhất..."):
-                        original_idx = filtered_df.index.get_loc(selected_prop.name)
-                        # SỬA: Tìm trên toàn bộ dataframe, không chỉ filtered_df
-                        similar_results = get_similar_properties(original_idx, features_matrix, df, n_recommend + 10)
         
-                        # Lọc theo quận nếu có
-                        if selected_quan != "Tất cả":
-                            similar_results = [(idx, score) for idx, score in similar_results 
-                                            if df.iloc[idx]['quan'] == selected_quan]
+                        original_idx = selected_prop.name  # Đây là index thực trong df
+                        all_similar = get_similar_properties(original_idx, features_matrix, filtered_df, n_recommend + 10)
+    
+                        all_similar = [(idx, score) for idx, score in all_similar if idx != original_idx]
         
-                        # Lọc bỏ BĐS đã chọn
-                        similar_results = [(idx, score) for idx, score in similar_results 
-                                        if idx != selected_prop.name]
-           
-                        similar_results = similar_results[:n_recommend]
+                        similar_results = all_similar[:n_recommend]
         
                         if len(similar_results) == 0:
-                            st.info("Chưa tìm thấy thêm căn nhà nào tương tự trong danh sách lọc hiện tại.")
+                            st.info("Chưa tìm thấy thêm căn nhà nào tương tự trong danh sách hiện tại.")
                         else:
                             for i, (idx, score) in enumerate(similar_results, 1):
                                 prop = df.iloc[idx]
                                 match_percent = score * 100
                 
-                            if 'cluster_kmeans' in prop.index:
-                                cluster = prop['cluster_kmeans']
-                                segment_name = models['cluster_info'].get(cluster, {}).get('segment', 'Chưa xác định')
-                            else:
-                                segment_name = "Chưa xác định"
+                                if 'cluster_kmeans' in prop.index:
+                                    cluster = prop['cluster_kmeans']
+                                    segment_name = models['cluster_info'].get(cluster, {}).get('segment', 'Chưa xác định')
+                                else:
+                                    segment_name = "Chưa xác định"
                 
-                            with st.expander(f"**{i}. {prop['tieu_de'][:80]}...** (Độ phù hợp: {match_percent:.1f}%)", expanded=(i==1)):
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.write(f"**💰 Giá bán:** {prop['gia_ban']}")
-                                    st.write(f"**📐 Diện tích:** {prop['dien_tich']}")
-                                    st.write(f"**📍 Vị trí:** {prop['quan']}")
-                                with col2:
-                                    st.write(f"**🌟 Phân khúc:** {segment_name}")
-                                    st.progress(float(score))
+                                with st.expander(f"**{i}. {prop['tieu_de'][:80]}...** (Độ phù hợp: {match_percent:.1f}%)", expanded=(i==1)):
+                                    col1, col2 = st.columns(2)
+                                    with col1:
+                                        st.write(f"**💰 Giá bán:** {prop['gia_ban']}")
+                                        st.write(f"**📐 Diện tích:** {prop['dien_tich']}")
+                                        st.write(f"**📍 Vị trí:** {prop['quan']}")
+                                    with col2:
+                                        st.write(f"**🌟 Phân khúc:** {segment_name}")
+                                        st.progress(float(score))
                     
-                                if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
-                                    st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
+                                    if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
+                                        st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")    
     # ==================== TAB 2: UPLOAD CSV (GỢI Ý HÀNG LOẠT) ====================
     with tab2:
         st.markdown("""
