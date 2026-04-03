@@ -847,46 +847,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                             
                             # Sắp xếp theo điểm giảm dần
                             filtered_df = filtered_df.sort_values('search_score', ascending=False)
-                            
-                            # Hiển thị thông tin về thuật toán
-                            with st.expander("ℹ️ Về cách tính điểm phù hợp", expanded=False):
-                                st.markdown("""
-                                **Hệ thống tính điểm dựa trên:**
-                                - ✅ **Tìm chính xác cụm từ** (không tách rời từ khóa)
-                                - ✅ **Trọng số theo độ dài** (từ khóa càng dài càng quan trọng)
-                                - ✅ **Số lần xuất hiện** (xuất hiện nhiều lần được ưu tiên)
-                                - ✅ **Vị trí xuất hiện** (xuất hiện ở đầu tiêu đề được cộng thêm điểm)
-                                
-                                **Công thức tính:** `Điểm = (10 + độ_dài_từ/2) × số_lần_xuất_hiện + 20(nếu_ở_đầu) + độ_dài_từ×2(nếu_từ_dài>5)`
-                                """)
                         
-                        # Hiển thị kết quả
-                        if len(filtered_df) == 0:
-                            st.warning(f"⚠️ Không tìm thấy bất động sản nào có cụm từ: **{keywords}**")
-                            if selected_quan != "Tất cả":
-                                st.info(f"💡 **Gợi ý:** Thử tìm kiếm ở tất cả các quận hoặc bật 'Tìm trong mô tả'.")
-                            else:
-                                st.info("💡 **Gợi ý:** Hãy thử dùng từ khóa ngắn gọn hơn hoặc bật 'Tìm trong mô tả'.")
-                        else:
-                            st.success(f"✅ Tìm thấy **{len(filtered_df)}** căn nhà phù hợp với cụm từ: **{keywords}**")
-                            if selected_quan != "Tất cả":
-                                st.info(f"📍 Đã lọc theo quận: **{selected_quan}**")
-                            
-                            # Hiển thị top điểm cao nhất
-                            top_score = filtered_df['search_score'].max() if len(filtered_df) > 0 else 0
-                            st.caption(f"🏆 Điểm phù hợp cao nhất: {top_score} điểm")
-                            
-                            # Hiển thị danh sách kết quả tìm kiếm
-                            with st.expander("📋 Xem danh sách kết quả tìm kiếm", expanded=False):
-                                display_df = filtered_df.head(20).copy()
-                                display_df['Hiển thị'] = display_df.apply(
-                                    lambda x: f"🏠 {str(x['tieu_de'])[:70]}... | 💰 {x['gia_ban']} | 📐 {x['dien_tich']} | 📍 {x['quan']} | 🎯 {x['search_score']} điểm",
-                                    axis=1
-                                )
-                                for i, (idx, row) in enumerate(display_df.iterrows(), 1):
-                                    st.write(f"{i}. {row['Hiển thị']}")
-                                if len(filtered_df) > 20:
-                                    st.info(f"... và {len(filtered_df) - 20} căn khác")
                             
                             st.divider()
                             
