@@ -788,20 +788,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                             # Sắp xếp theo điểm giảm dần
                             filtered_df = filtered_df.sort_values('search_score', ascending=False)
                         
-                            
-                            # Hiển thị danh sách kết quả tìm kiếm
-                            with st.expander("📋 Xem danh sách kết quả tìm kiếm", expanded=False):
-                                display_df = filtered_df.head(20).copy()
-                                display_df['Hiển thị'] = display_df.apply(
-                                    lambda x: f"🏠 {str(x['tieu_de'])[:70]}... | 💰 {x['gia_ban']} | 📐 {x['dien_tich']} | 📍 {x['quan']}",
-                                    axis=1
-                                )
-                                for i, (idx, row) in enumerate(display_df.iterrows(), 1):
-                                    st.write(f"{i}. {row['Hiển thị']}")
-                                if len(filtered_df) > 20:
-                                    st.info(f"... và {len(filtered_df) - 20} căn khác")
-                            
-                            st.divider()
+
                             
                             # ========== HIỂN THỊ DANH SÁCH GỢI Ý ==========
                             st.subheader(f"🎯 {n_recommend} căn nhà phù hợp nhất với từ khóa của bạn")
