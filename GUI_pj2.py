@@ -772,10 +772,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                         # 2. Tiền xử lý từ khóa: giữ nguyên cụm từ, không tách rời
                         import re
                         keyword_list = [k.strip() for k in keywords.split() if k.strip()]
-                        
-                        # Hiển thị từ khóa đang tìm
-                        st.info(f"🔍 Đang tìm kiếm {len(keyword_list)} cụm từ: **{', '.join(keyword_list)}**")
-                        
+
                         if keyword_list:
                             # ========== HÀM TÍNH ĐIỂM THÔNG MINH ==========
                             def calculate_score(text, keyword_list):
