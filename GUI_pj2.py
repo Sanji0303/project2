@@ -703,10 +703,13 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                     st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
         
-        # ==================== SUB-TAB 2: TÌM KIẾM THEO TỪ KHÓA ====================
+        # ==================== SUB-TAB 2: TÌM KIẾM THEO TỪ KHÓA (CẢI TIẾN) ====================
         with sub_tab2:
             st.markdown("##### 🔎 Tìm kiếm bất động sản theo từ khóa")
-            st.markdown("Nhập từ khóa mô tả căn nhà bạn mong muốn, hệ thống sẽ tìm những bất động sản có tiêu đề phù hợp nhất.")
+            st.markdown("""
+            Nhập từ khóa mô tả căn nhà bạn mong muốn. Hệ thống sẽ tìm kiếm **chính xác cụm từ** 
+            và ưu tiên những bất động sản có từ khóa xuất hiện nhiều lần trong tiêu đề.
+            """)
             
             df = models['df_recommend']
             features_matrix = models['features']
@@ -733,8 +736,8 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                 with col2:
                     keywords = st.text_input(
                         "🔎 Từ khóa tìm kiếm",
-                        placeholder="Ví dụ: nhà đẹp hẻm ô tô mặt tiền",
-                        help="Nhập từ khóa bạn muốn tìm kiếm. Hệ thống sẽ ưu tiên các BĐS có từ khóa trong tiêu đề."
+                        placeholder="Ví dụ: nhà đẹp, hẻm ô tô, mặt tiền",
+                        help="💡 Nhập cụm từ chính xác. Ví dụ: 'hẻm ô tô' sẽ tìm đúng cụm này, không tách rời."
                     )
                 
                 st.markdown("---")
@@ -746,71 +749,159 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                         help="Chọn số lượng bất động sản sẽ hiển thị"
                     )
                 
+                # Thêm tùy chọn tìm kiếm trong mô tả
+                search_in_description = st.checkbox(
+                    "🔍 Tìm kiếm trong cả mô tả (mở rộng kết quả)",
+                    value=False,
+                    help="Bật nếu muốn tìm cả trong mô tả, nhưng kết quả có thể kém chính xác hơn"
+                )
+                
                 submitted = st.form_submit_button("🔍 Tìm kiếm", type="primary", use_container_width=True)
             
             if submitted:
                 if not keywords:
                     st.warning("⚠️ Vui lòng nhập từ khóa tìm kiếm!")
                 else:
-                    with st.spinner("🔍 Hệ thống đang tìm kiếm..."):
+                    with st.spinner("🔍 Hệ thống đang tìm kiếm với thuật toán thông minh..."):
                         filtered_df = df.copy()
                         
                         # 1. Lọc theo quận
                         if selected_quan != "Tất cả":
                             filtered_df = filtered_df[filtered_df['quan'] == selected_quan]
                         
-                        # 2. Tìm kiếm theo từ khóa trong tiêu đề (có tính điểm ưu tiên)
+                        # 2. Tiền xử lý từ khóa: giữ nguyên cụm từ, không tách rời
+                        import re
                         keyword_list = [k.strip() for k in keywords.split() if k.strip()]
                         
+                        # Hiển thị từ khóa đang tìm
+                        st.info(f"🔍 Đang tìm kiếm {len(keyword_list)} cụm từ: **{', '.join(keyword_list)}**")
+                        
                         if keyword_list:
-                            # Tính điểm phù hợp cho từng BĐS
-                            scores = []
-                            for idx, row in filtered_df.iterrows():
-                                title = str(row['tieu_de']).lower()
-                                score = 0
+                            # ========== HÀM TÍNH ĐIỂM THÔNG MINH ==========
+                            def calculate_score(text, keyword_list):
+                                """
+                                Tính điểm phù hợp dựa trên:
+                                1. Tìm chính xác cụm từ (không tách rời)
+                                2. Trọng số theo độ dài từ khóa
+                                3. Số lần xuất hiện
+                                4. Vị trí xuất hiện (đầu câu được ưu tiên)
+                                """
+                                text_lower = text.lower()
+                                total_score = 0
+                                matched_keywords = []
+                                
                                 for kw in keyword_list:
                                     kw_lower = kw.lower()
-                                    # Đếm số lần xuất hiện của từ khóa
-                                    count = title.count(kw_lower)
+                                    # Tìm chính xác cụm từ (dùng regex để không bị tách)
+                                    pattern = r'\b' + re.escape(kw_lower) + r'\b'
+                                    matches = re.findall(pattern, text_lower)
+                                    count = len(matches)
+                                    
                                     if count > 0:
-                                        # Từ khóa xuất hiện càng nhiều càng tốt
-                                        score += count * 10
-                                        # Từ khóa xuất hiện ở đầu tiêu đề được ưu tiên
-                                        if title.startswith(kw_lower):
-                                            score += 20
+                                        matched_keywords.append(kw)
+                                        # Công thức tính điểm:
+                                        # - Mỗi lần xuất hiện: +10 điểm cơ bản
+                                        # - Trọng số theo độ dài từ khóa (từ dài quan trọng hơn)
+                                        # - Ưu tiên nếu xuất hiện ở đầu câu
+                                        
+                                        # Trọng số: từ càng dài càng quan trọng (tối đa 5)
+                                        weight = min(len(kw) / 2, 5)
+                                        
+                                        # Điểm cơ bản
+                                        base_score = count * (10 + weight)
+                                        
+                                        # Điểm ưu tiên đầu câu
+                                        prefix_bonus = 0
+                                        if text_lower.startswith(kw_lower):
+                                            prefix_bonus = 20
+                                        
+                                        # Điểm ưu tiên cho cụm từ dài
+                                        length_bonus = len(kw) * 2 if len(kw) > 5 else 0
+                                        
+                                        total_score += base_score + prefix_bonus + length_bonus
+                                
+                                return total_score, matched_keywords
+                            
+                            # Tính điểm cho từng BĐS
+                            scores = []
+                            matched_keywords_list = []
+                            
+                            for idx, row in filtered_df.iterrows():
+                                # Tìm trong tiêu đề
+                                title = str(row['tieu_de'])
+                                score, matched = calculate_score(title, keyword_list)
+                                
+                                # Nếu bật tìm trong mô tả và chưa đủ điểm
+                                if search_in_description and score == 0 and 'mo_ta' in filtered_df.columns:
+                                    description = str(row['mo_ta']) if pd.notna(row['mo_ta']) else ""
+                                    score, matched = calculate_score(description, keyword_list)
+                                
                                 scores.append(score)
+                                matched_keywords_list.append(matched)
                             
                             # Chỉ giữ lại BĐS có điểm > 0
                             mask = [s > 0 for s in scores]
                             filtered_df = filtered_df[mask].copy()
                             filtered_df['search_score'] = [s for s in scores if s > 0]
+                            filtered_df['matched_keywords'] = [m for m in matched_keywords_list if len(m) > 0]
                             
                             # Sắp xếp theo điểm giảm dần
                             filtered_df = filtered_df.sort_values('search_score', ascending=False)
+                            
+                            # Hiển thị thông tin về thuật toán
+                            with st.expander("ℹ️ Về cách tính điểm phù hợp", expanded=False):
+                                st.markdown("""
+                                **Hệ thống tính điểm dựa trên:**
+                                - ✅ **Tìm chính xác cụm từ** (không tách rời từ khóa)
+                                - ✅ **Trọng số theo độ dài** (từ khóa càng dài càng quan trọng)
+                                - ✅ **Số lần xuất hiện** (xuất hiện nhiều lần được ưu tiên)
+                                - ✅ **Vị trí xuất hiện** (xuất hiện ở đầu tiêu đề được cộng thêm điểm)
+                                
+                                **Công thức tính:** `Điểm = (10 + độ_dài_từ/2) × số_lần_xuất_hiện + 20(nếu_ở_đầu) + độ_dài_từ×2(nếu_từ_dài>5)`
+                                """)
                         
                         # Hiển thị kết quả
                         if len(filtered_df) == 0:
-                            st.warning(f"⚠️ Không tìm thấy bất động sản nào có từ khóa: **{keywords}**")
+                            st.warning(f"⚠️ Không tìm thấy bất động sản nào có cụm từ: **{keywords}**")
                             if selected_quan != "Tất cả":
-                                st.info(f"💡 **Gợi ý:** Thử tìm kiếm ở tất cả các quận hoặc dùng từ khóa khác.")
+                                st.info(f"💡 **Gợi ý:** Thử tìm kiếm ở tất cả các quận hoặc bật 'Tìm trong mô tả'.")
                             else:
-                                st.info("💡 **Gợi ý:** Hãy thử dùng từ khóa ngắn gọn hơn hoặc từ khóa phổ biến hơn.")
+                                st.info("💡 **Gợi ý:** Hãy thử dùng từ khóa ngắn gọn hơn hoặc bật 'Tìm trong mô tả'.")
                         else:
-                            st.success(f"✅ Tìm thấy **{len(filtered_df)}** căn nhà phù hợp với từ khóa: **{keywords}**")
+                            st.success(f"✅ Tìm thấy **{len(filtered_df)}** căn nhà phù hợp với cụm từ: **{keywords}**")
                             if selected_quan != "Tất cả":
                                 st.info(f"📍 Đã lọc theo quận: **{selected_quan}**")
                             
+                            # Hiển thị top điểm cao nhất
+                            top_score = filtered_df['search_score'].max() if len(filtered_df) > 0 else 0
+                            st.caption(f"🏆 Điểm phù hợp cao nhất: {top_score} điểm")
+                            
+                            # Hiển thị danh sách kết quả tìm kiếm
+                            with st.expander("📋 Xem danh sách kết quả tìm kiếm", expanded=False):
+                                display_df = filtered_df.head(20).copy()
+                                display_df['Hiển thị'] = display_df.apply(
+                                    lambda x: f"🏠 {str(x['tieu_de'])[:70]}... | 💰 {x['gia_ban']} | 📐 {x['dien_tich']} | 📍 {x['quan']} | 🎯 {x['search_score']} điểm",
+                                    axis=1
+                                )
+                                for i, (idx, row) in enumerate(display_df.iterrows(), 1):
+                                    st.write(f"{i}. {row['Hiển thị']}")
+                                if len(filtered_df) > 20:
+                                    st.info(f"... và {len(filtered_df) - 20} căn khác")
+                            
+                            st.divider()
                             
                             # ========== HIỂN THỊ DANH SÁCH GỢI Ý ==========
                             st.subheader(f"🎯 {n_recommend} căn nhà phù hợp nhất với từ khóa của bạn")
                             
                             # Lấy danh sách các căn để hiển thị (top N căn có điểm cao nhất)
                             filtered_indices = filtered_df.index.tolist()
-                            results = [(filtered_indices[i], 0.5) for i in range(min(n_recommend, len(filtered_indices)))]
+                            results = [(filtered_indices[i], filtered_df.iloc[i]['search_score']) 
+                                      for i in range(min(n_recommend, len(filtered_indices)))]
                             
                             # Hiển thị kết quả
                             for i, (idx, score) in enumerate(results, 1):
                                 prop = df.loc[idx]
+                                matched_keywords = filtered_df.loc[idx, 'matched_keywords']
                                 
                                 # Tính phân khúc cho BĐS
                                 prop_features = pd.DataFrame([{
@@ -823,10 +914,7 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 prop_cluster = kmeans.predict(prop_scaled)[0]
                                 prop_segment = cluster_info[prop_cluster]['segment']
                                 
-                                # Lấy điểm tìm kiếm (nếu có)
-                                search_score = filtered_df.loc[idx, 'search_score'] if 'search_score' in filtered_df.columns else 0
-                                
-                                with st.expander(f"**{i}. {prop['tieu_de'][:80]}...** (Độ phù hợp: {search_score} điểm)", expanded=(i==1)):
+                                with st.expander(f"**{i}. {prop['tieu_de'][:80]}...** (Độ phù hợp: {score} điểm)", expanded=(i==1)):
                                     col1, col2 = st.columns(2)
                                     with col1:
                                         st.write(f"**💰 Giá bán:** {prop['gia_ban']}")
@@ -835,11 +923,12 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                     with col2:
                                         st.write(f"**🌟 Phân khúc:** {prop_segment}")
                                     
-                                    # Hiển thị các từ khóa tìm thấy trong tiêu đề
-                                    title_lower = str(prop['tieu_de']).lower()
-                                    found_keywords = [kw for kw in keyword_list if kw.lower() in title_lower]
-                                    if found_keywords:
-                                        st.write(f"**🔍 Từ khóa tìm thấy:** {', '.join(found_keywords)}")
+                                    # Hiển thị các từ khóa đã match
+                                    if matched_keywords:
+                                        st.write(f"**🔍 Từ khóa tìm thấy:** {', '.join(matched_keywords)}")
+                                    
+                                    # Hiển thị tiêu đề đầy đủ
+                                    st.write(f"**📝 Tiêu đề đầy đủ:** {prop['tieu_de']}")
                                     
                                     if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                         st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
