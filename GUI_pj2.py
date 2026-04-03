@@ -47,34 +47,6 @@ def load_models():
     models['df_clustered'] = df_clustered
     
     # ==================== PHÂN CHIA PHÂN KHÚC THEO NGƯỠNG ====================
-    # Định nghĩa ngưỡng phân loại dựa trên giá và diện tích
-    def get_cluster_from_threshold(price, area):
-        """
-        Phân loại dựa trên ngưỡng giá và diện tích
-        price: giá (VNĐ)
-        area: diện tích (m²)
-        """
-        # Cụm 0: Siêu cao cấp - Biệt thự
-        if (5.5e9 <= price <= 5.79e10) and (14.5 <= area <= 123):
-            return 0
-        # Cụm 1: Cao cấp - Tiện nghi
-        elif (4.36e9 <= price <= 2.2e10) and (64 <= area <= 226):
-            return 1
-        # Cụm 2: Khá giả - Giá cả hợp lý (giá thấp hơn, diện tích nhỏ hơn)
-        elif (5e8 <= price <= 1.1e10) and (11 <= area <= 88):
-            return 2
-        # Cụm 3: Trung cấp - Diện tích vừa
-        elif (1.95e9 <= price <= 1.85e10) and (10.4 <= area <= 101):
-            return 3
-        # Cụm 4: Khá giả - Không gian rộng (diện tích lớn hơn)
-        elif (1.18e9 <= price <= 1.52e10) and (10.5 <= area <= 76):
-            return 4
-        # Cụm 5: Hạng sang - Dinh thự
-        elif (1.6666e10 <= price <= 9.2e10) and (124.8 <= area <= 915):
-            return 5
-        else:
-            return None
-    
     # Định nghĩa tên và thông tin cho từng cụm
     cluster_segments = {
         0: {
@@ -158,6 +130,91 @@ def load_models():
     models['cluster_info'] = cluster_info
     
     return models
+
+# ==================== SIDEBAR MENU & THÔNG TIN ĐỘI NGŨ ====================
+st.sidebar.title("🏠 MENU CHÍNH")
+menu = st.sidebar.radio(
+    "Danh mục chức năng",
+    [
+        "🌟 Trang chủ", 
+        "📊 Tổng quan thị trường", 
+        "🎯 Khám phá phân khúc", 
+        "🔍 Tìm kiếm & Gợi ý"
+    ]
+)
+
+# Hiển thị cố định Đội ngũ phát triển ở Sidebar
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 👨‍💻 Đội ngũ phát triển")
+st.sidebar.info("""
+**Dự án: Hệ thống Tư vấn Bất động sản**
+
+👥 **Thành viên:**
+- **Đặng Đức Duy** (Dữ liệu)
+- **Contact: duydd1411@gmail.com**
+
+- **Huỳnh Lê Xuân Ánh** (Hệ thống gợi ý)
+- **Contact: huynhlexuananh2002@gmail.com**
+
+- **Nguyễn Thị Tuyết Vân** (Phân tích thị trường)
+- **Contact: tuyetvan1418393@gmail.com**
+""")
+st.sidebar.caption("© 2024 - Real Estate Recommender System")
+
+# ==================== TRANG CHỦ ====================
+if menu == "🌟 Trang chủ":
+    st.title("🌟 Chào mừng đến với Hệ thống Tư vấn Bất động sản")
+    
+    st.markdown("""
+    Hệ thống của chúng tôi giúp bạn dễ dàng tìm kiếm, định giá và lựa chọn tổ ấm phù hợp nhất tại các khu vực trung tâm TP.HCM. 
+    Với công nghệ phân tích dữ liệu thông minh, chúng tôi mang đến cho bạn những gợi ý chính xác và khách quan nhất.
+    """)
+    
+    st.markdown("### 📌 Khu vực hỗ trợ hiện tại")
+    st.markdown("- Quận **Bình Thạnh**\n- Quận **Gò Vấp**\n- Quận **Phú Nhuận**")
+    
+    st.markdown("### 📊 Thống kê kho dữ liệu")
+    col1, col2, col3 = st.columns(3)
+    df = models['df_recommend']
+    with col1:
+        st.metric("Tổng số BĐS đang bán", f"{len(df):,} căn")
+    with col2:
+        st.metric("Mức giá trung bình", f"{df['gia_ban_num'].mean()/1e9:.1f} tỷ VNĐ")
+    with col3:
+        st.metric("Diện tích trung bình", f"{df['dien_tich_num'].mean():.0f} m²")
+        
+    st.image("https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80", use_column_width=True, caption="Giải pháp tìm nhà thông minh cho mọi gia đình")
+
+# ==================== TỔNG QUAN THỊ TRƯỜNG ====================
+elif menu == "📊 Tổng quan thị trường":
+    st.title("📊 Bức tranh Thị trường Bất động sản")
+    
+    st.write("Dựa trên hàng ngàn tin đăng hiện có, hệ thống của chúng tôi đã phân tích và chia thị trường thành **6 phân khúc chính** để giúp bạn dễ dàng hình dung và lựa chọn.")
+    
+    st.subheader("📈 Tỷ trọng các phân khúc")
+    cluster_counts = {cluster: info['count'] for cluster, info in models['cluster_info'].items()}
+    
+    # Chỉ lấy tên phân khúc để hiển thị biểu đồ cho đẹp
+    chart_data = pd.DataFrame({
+        'Phân khúc': [models['cluster_info'][c]['segment'] for c in sorted(cluster_counts.keys())],
+        'Số lượng căn': [cluster_counts[c] for c in sorted(cluster_counts.keys())]
+    })
+    st.bar_chart(chart_data.set_index('Phân khúc'))
+    
+    st.subheader("📋 Chi tiết từng phân khúc")
+    for cluster in sorted(cluster_counts.keys()):
+        info = models['cluster_info'][cluster]
+        with st.expander(f"{info['icon']} **{info['segment']}** ({info['count']} căn)"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write(f"**💰 Khoảng giá:** {info['price_range']}")
+                st.write(f"**💵 Giá trung bình:** {info['avg_price']:.1f} tỷ")
+            with col2:
+                st.write(f"**📐 Diện tích:** {info['area_range']}")
+                st.write(f"**📏 DT trung bình:** {info['avg_area']:.0f} m²")
+            with col3:
+                st.write(f"**🎯 Phù hợp với:**")
+                st.write(f"*{info['description']}*")
 
 # ==================== KHÁM PHÁ PHÂN KHÚC ====================
 elif menu == "🎯 Khám phá phân khúc":
