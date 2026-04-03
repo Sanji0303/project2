@@ -131,14 +131,35 @@ def load_models():
     
     return models
 
+# ==================== HÀM TÍNH ĐỘ PHÙ HỢP ====================
+def get_similar_properties(idx, features, df_filtered, top_k=10):
+    query_vector = features[idx]
+    similarities = cosine_similarity(query_vector, features).flatten()
+    
+    similar_indices = similarities.argsort()[::-1][1:top_k+1]
+    similar_scores = similarities[similar_indices]
+    
+    results = []
+    for i, (sim_idx, score) in enumerate(zip(similar_indices, similar_scores)):
+        if sim_idx in df_filtered.index:
+            results.append((sim_idx, score))
+        if len(results) >= top_k:
+            break
+    
+    return results
+
+# ==================== LOAD MODELS ====================
+with st.spinner("Đang kết nối cơ sở dữ liệu..."):
+    models = load_models()
+
 # ==================== SIDEBAR MENU & THÔNG TIN ĐỘI NGŨ ====================
 st.sidebar.title("🏠 MENU CHÍNH")
 menu = st.sidebar.radio(
     "Danh mục chức năng",
     [
-        "🌟 Trang chủ", 
-        "📊 Tổng quan thị trường", 
-        "🎯 Khám phá phân khúc", 
+        "🌟 Trang chủ",
+        "📊 Tổng quan thị trường",
+        "🎯 Khám phá phân khúc",
         "🔍 Tìm kiếm & Gợi ý"
     ]
 )
@@ -166,7 +187,7 @@ if menu == "🌟 Trang chủ":
     st.title("🌟 Chào mừng đến với Hệ thống Tư vấn Bất động sản")
     
     st.markdown("""
-    Hệ thống của chúng tôi giúp bạn dễ dàng tìm kiếm, định giá và lựa chọn tổ ấm phù hợp nhất tại các khu vực trung tâm TP.HCM. 
+    Hệ thống của chúng tôi giúp bạn dễ dàng tìm kiếm, định giá và lựa chọn tổ ấm phù hợp nhất tại các khu vực trung tâm TP.HCM.
     Với công nghệ phân tích dữ liệu thông minh, chúng tôi mang đến cho bạn những gợi ý chính xác và khách quan nhất.
     """)
     
@@ -182,7 +203,7 @@ if menu == "🌟 Trang chủ":
         st.metric("Mức giá trung bình", f"{df['gia_ban_num'].mean()/1e9:.1f} tỷ VNĐ")
     with col3:
         st.metric("Diện tích trung bình", f"{df['dien_tich_num'].mean():.0f} m²")
-        
+    
     st.image("https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80", use_column_width=True, caption="Giải pháp tìm nhà thông minh cho mọi gia đình")
 
 # ==================== TỔNG QUAN THỊ TRƯỜNG ====================
@@ -194,7 +215,6 @@ elif menu == "📊 Tổng quan thị trường":
     st.subheader("📈 Tỷ trọng các phân khúc")
     cluster_counts = {cluster: info['count'] for cluster, info in models['cluster_info'].items()}
     
-    # Chỉ lấy tên phân khúc để hiển thị biểu đồ cho đẹp
     chart_data = pd.DataFrame({
         'Phân khúc': [models['cluster_info'][c]['segment'] for c in sorted(cluster_counts.keys())],
         'Số lượng căn': [cluster_counts[c] for c in sorted(cluster_counts.keys())]
@@ -215,7 +235,6 @@ elif menu == "📊 Tổng quan thị trường":
             with col3:
                 st.write(f"**🎯 Phù hợp với:**")
                 st.write(f"*{info['description']}*")
-
 # ==================== KHÁM PHÁ PHÂN KHÚC ====================
 elif menu == "🎯 Khám phá phân khúc":
     st.title("🎯 Định vị Phân khúc Bất động sản")
