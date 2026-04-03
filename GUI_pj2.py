@@ -718,17 +718,28 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
             cluster_info = models['cluster_info']
             quan_to_code = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
             
-            # Form tìm kiếm đơn giản
+            # Form tìm kiếm
             with st.form("keyword_search_form"):
-                keywords = st.text_input(
-                    "🔎 Từ khóa tìm kiếm",
-                    placeholder="Ví dụ: nhà đẹp, hẻm ô tô, mặt tiền, gần chợ...",
-                    help="Nhập từ khóa bạn muốn tìm kiếm trong tiêu đề bất động sản"
-                )
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    selected_quan = st.selectbox(
+                        "📍 Khu vực",
+                        options=["Tất cả"] + df['quan'].unique().tolist(),
+                        index=0,
+                        help="Chọn quận bạn quan tâm, hoặc chọn 'Tất cả' để tìm kiếm toàn bộ"
+                    )
+                
+                with col2:
+                    keywords = st.text_input(
+                        "🔎 Từ khóa tìm kiếm",
+                        placeholder="Ví dụ: nhà đẹp hẻm ô tô mặt tiền",
+                        help="Nhập từ khóa bạn muốn tìm kiếm. Hệ thống sẽ ưu tiên các BĐS có từ khóa trong tiêu đề."
+                    )
                 
                 st.markdown("---")
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
+                col3, col4, col5 = st.columns([1, 2, 1])
+                with col4:
                     n_recommend = st.slider(
                         "🔢 Số lượng kết quả muốn xem:",
                         min_value=3, max_value=15, value=5, step=1,
@@ -744,34 +755,75 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                     with st.spinner("🔍 Hệ thống đang tìm kiếm..."):
                         filtered_df = df.copy()
                         
-                        # Tìm kiếm theo từ khóa trong tiêu đề (OR logic)
+                        # 1. Lọc theo quận
+                        if selected_quan != "Tất cả":
+                            filtered_df = filtered_df[filtered_df['quan'] == selected_quan]
+                        
+                        # 2. Tìm kiếm theo từ khóa trong tiêu đề (có tính điểm ưu tiên)
                         keyword_list = [k.strip() for k in keywords.split() if k.strip()]
+                        
                         if keyword_list:
-                            combined_mask = pd.Series(False, index=filtered_df.index)
-                            for kw in keyword_list:
-                                title_mask = filtered_df['tieu_de'].str.contains(kw, case=False, na=False)
-                                combined_mask = combined_mask | title_mask
-                            filtered_df = filtered_df[combined_mask]
+                            # Tính điểm phù hợp cho từng BĐS
+                            scores = []
+                            for idx, row in filtered_df.iterrows():
+                                title = str(row['tieu_de']).lower()
+                                score = 0
+                                for kw in keyword_list:
+                                    kw_lower = kw.lower()
+                                    # Đếm số lần xuất hiện của từ khóa
+                                    count = title.count(kw_lower)
+                                    if count > 0:
+                                        # Từ khóa xuất hiện càng nhiều càng tốt
+                                        score += count * 10
+                                        # Từ khóa xuất hiện ở đầu tiêu đề được ưu tiên
+                                        if title.startswith(kw_lower):
+                                            score += 20
+                                scores.append(score)
+                            
+                            # Chỉ giữ lại BĐS có điểm > 0
+                            mask = [s > 0 for s in scores]
+                            filtered_df = filtered_df[mask].copy()
+                            filtered_df['search_score'] = [s for s in scores if s > 0]
+                            
+                            # Sắp xếp theo điểm giảm dần
+                            filtered_df = filtered_df.sort_values('search_score', ascending=False)
                         
                         # Hiển thị kết quả
                         if len(filtered_df) == 0:
                             st.warning(f"⚠️ Không tìm thấy bất động sản nào có từ khóa: **{keywords}**")
-                            st.info("💡 **Gợi ý:** Hãy thử dùng từ khóa ngắn gọn hơn hoặc từ khóa phổ biến hơn.")
+                            if selected_quan != "Tất cả":
+                                st.info(f"💡 **Gợi ý:** Thử tìm kiếm ở tất cả các quận hoặc dùng từ khóa khác.")
+                            else:
+                                st.info("💡 **Gợi ý:** Hãy thử dùng từ khóa ngắn gọn hơn hoặc từ khóa phổ biến hơn.")
                         else:
                             st.success(f"✅ Tìm thấy **{len(filtered_df)}** căn nhà phù hợp với từ khóa: **{keywords}**")
+                            if selected_quan != "Tất cả":
+                                st.info(f"📍 Đã lọc theo quận: **{selected_quan}**")
                             
+                            # Hiển thị danh sách kết quả tìm kiếm
+                            with st.expander("📋 Xem danh sách kết quả tìm kiếm", expanded=False):
+                                display_df = filtered_df.head(20).copy()
+                                display_df['Hiển thị'] = display_df.apply(
+                                    lambda x: f"🏠 {str(x['tieu_de'])[:70]}... | 💰 {x['gia_ban']} | 📐 {x['dien_tich']} | 📍 {x['quan']}",
+                                    axis=1
+                                )
+                                for i, (idx, row) in enumerate(display_df.iterrows(), 1):
+                                    st.write(f"{i}. {row['Hiển thị']}")
+                                if len(filtered_df) > 20:
+                                    st.info(f"... và {len(filtered_df) - 20} căn khác")
+                            
+                            st.divider()
                             
                             # ========== HIỂN THỊ DANH SÁCH GỢI Ý ==========
                             st.subheader(f"🎯 {n_recommend} căn nhà phù hợp nhất với từ khóa của bạn")
                             
-                            # Lấy danh sách các căn để hiển thị (top N căn đầu tiên)
+                            # Lấy danh sách các căn để hiển thị (top N căn có điểm cao nhất)
                             filtered_indices = filtered_df.index.tolist()
                             results = [(filtered_indices[i], 0.5) for i in range(min(n_recommend, len(filtered_indices)))]
                             
                             # Hiển thị kết quả
                             for i, (idx, score) in enumerate(results, 1):
                                 prop = df.loc[idx]
-                                match_percent = 100  # Vì đã match từ khóa
                                 
                                 # Tính phân khúc cho BĐS
                                 prop_features = pd.DataFrame([{
@@ -784,7 +836,10 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                 prop_cluster = kmeans.predict(prop_scaled)[0]
                                 prop_segment = cluster_info[prop_cluster]['segment']
                                 
-                                with st.expander(f"**{i}. {prop['tieu_de'][:80]}...**", expanded=(i==1)):
+                                # Lấy điểm tìm kiếm (nếu có)
+                                search_score = filtered_df.loc[idx, 'search_score'] if 'search_score' in filtered_df.columns else 0
+                                
+                                with st.expander(f"**{i}. {prop['tieu_de'][:80]}...** (Độ phù hợp: {search_score} điểm)", expanded=(i==1)):
                                     col1, col2 = st.columns(2)
                                     with col1:
                                         st.write(f"**💰 Giá bán:** {prop['gia_ban']}")
@@ -792,6 +847,12 @@ elif menu == "🔍 Tìm kiếm & Gợi ý":
                                         st.write(f"**📍 Vị trí:** {prop['quan']}")
                                     with col2:
                                         st.write(f"**🌟 Phân khúc:** {prop_segment}")
+                                    
+                                    # Hiển thị các từ khóa tìm thấy trong tiêu đề
+                                    title_lower = str(prop['tieu_de']).lower()
+                                    found_keywords = [kw for kw in keyword_list if kw.lower() in title_lower]
+                                    if found_keywords:
+                                        st.write(f"**🔍 Từ khóa tìm thấy:** {', '.join(found_keywords)}")
                                     
                                     if 'mo_ta' in prop.index and pd.notna(prop['mo_ta']):
                                         st.write(f"**📝 Mô tả chi tiết:** {prop['mo_ta'][:200]}...")
